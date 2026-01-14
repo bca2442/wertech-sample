@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-teal: #0d9488; /* Tailwind teal-600 */
+  --slate-dark: #0f172a;   /* Tailwind slate-900 */
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased overflow-x-hidden;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  /* Premium Glassmorphism Effect */
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-xl border border-white shadow-xl shadow-slate-200/50;
+  }
+
+  /* Custom Scrollbar for the Explore Categories */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Range Input Styling for the Profile Radius Slider */
+  input[type='range'] {
+    @apply appearance-none bg-slate-200 h-2 rounded-lg outline-none transition-all;
+  }
+  input[type='range']::-webkit-slider-thumb {
+    @apply appearance-none w-6 h-6 bg-teal-600 rounded-full cursor-pointer shadow-lg border-2 border-white;
+  }
+}
+
+/* Custom Animation for Notification Pulses */
+@keyframes soft-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+.animate-soft-pulse {
+  animation: soft-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Gradient text for Branding */
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-teal-600 to-blue-600 font-black;
+}
