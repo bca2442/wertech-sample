@@ -14,6 +14,7 @@ const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 const JWT_SECRET = process.env.JWT_SECRET || 'wertech_dev_secret_change_me';
 const PORT = Number(process.env.PORT || 5000);
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/wertech_db';
+const DEFAULT_MONGODB_DB_NAME = 'wertech_db';
 const CORS_ORIGINS = String(
   process.env.CORS_ORIGINS
   || 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001,http://localhost:5173,http://127.0.0.1:5173'
@@ -22,6 +23,22 @@ const CORS_ORIGINS = String(
   .map((v) => v.trim())
   .filter(Boolean);
 const APP_ENV = process.env.NODE_ENV || 'development';
+
+function resolveMongoUri(inputUri) {
+  const raw = String(inputUri || '').trim();
+  if (!raw) return raw;
+  const isMongoProtocol = raw.startsWith('mongodb://') || raw.startsWith('mongodb+srv://');
+  if (!isMongoProtocol) return raw;
+  try {
+    const parsed = new URL(raw);
+    const dbNameFromPath = String(parsed.pathname || '').replace(/^\//, '').trim();
+    if (dbNameFromPath) return raw;
+    parsed.pathname = `/${DEFAULT_MONGODB_DB_NAME}`;
+    return parsed.toString();
+  } catch (err) {
+    return raw;
+  }
+}
 
 function generateRequestId() {
   if (typeof crypto.randomUUID === 'function') {
@@ -604,11 +621,13 @@ app.use('/api', validateApiRequest);
 let mongoConnectionPromise = null;
 function connectDatabase() {
   if (!mongoConnectionPromise) {
-    mongoConnectionPromise = mongoose.connect(MONGODB_URI)
+    const effectiveMongoUri = resolveMongoUri(MONGODB_URI);
+    mongoConnectionPromise = mongoose.connect(effectiveMongoUri)
       .then(() => {
         logStructured('info', 'mongodb_connected', {
           host: mongoose.connection?.host || null,
-          name: mongoose.connection?.name || null
+          name: mongoose.connection?.name || null,
+          default_db_name: DEFAULT_MONGODB_DB_NAME
         });
         return mongoose.connection;
       })
