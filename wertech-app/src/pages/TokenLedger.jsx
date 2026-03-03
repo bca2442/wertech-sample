@@ -69,7 +69,7 @@ export default function TokenLedger() {
 
   const handleDownloadStatement = () => {
     if (!transactions.length) {
-      showToast('No transactions available to export.', 'info');
+      showToast('No transactions available', 'info');
       return;
     }
 
