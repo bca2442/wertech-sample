@@ -446,6 +446,7 @@ function validateApiRequest(req, res, next) {
     requireString('body', 'username', 'username');
     requireString('body', 'email', 'email');
     requireString('body', 'password', 'password');
+    optionalEnum('body', 'profile_visibility', ['public', 'private']);
   }
   if (method === 'POST' && path === '/auth/login') {
     requireString('body', 'email', 'email or username');
@@ -775,6 +776,8 @@ app.post('/api/auth/register', async (req, res) => {
     const username = String(req.body?.username || '').trim();
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
+    const profileVisibilityRaw = String(req.body?.profile_visibility || 'public').trim().toLowerCase();
+    const profileVisibility = profileVisibilityRaw === 'private' ? 'private' : 'public';
     if (!username || !email || !password) {
       return res.status(400).json({ message: "Username, email, and password are required" });
     }
@@ -796,6 +799,7 @@ app.post('/api/auth/register', async (req, res) => {
       role: 'user',
       wtk_balance: 1000,
       status: 'Verified',
+      profile_visibility: profileVisibility,
       has_subscribed: true,
       subscription_paid: 0
     });

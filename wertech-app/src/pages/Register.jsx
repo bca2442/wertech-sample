@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ShieldCheck, User, Mail, Lock, ArrowRight } from 'lucide-react';
+import { ShieldCheck, User, Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import BrandLogo from '../components/BrandLogo';
 import { getApiMessage, toastError, toastSuccess, validateRegistrationForm } from '../utils/feedback';
 
@@ -11,7 +11,8 @@ export default function Register() {
   const [formData, setFormData] = useState({ 
     username: '', 
     email: '', 
-    password: '' 
+    password: '',
+    profile_visibility: 'public'
   });
   const [usernameState, setUsernameState] = useState({
     checking: false,
@@ -199,6 +200,39 @@ export default function Register() {
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, profile_visibility: 'public' })}
+                className={`p-4 rounded-2xl border text-left transition-all ${
+                  formData.profile_visibility === 'public'
+                    ? 'border-teal-500 bg-teal-50'
+                    : 'border-slate-200 bg-white'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Eye size={16} className={formData.profile_visibility === 'public' ? 'text-teal-600' : 'text-slate-400'} />
+                  <p className="font-black text-sm text-slate-800">Public</p>
+                </div>
+                <p className="text-[11px] font-semibold text-slate-500 mt-1">Anyone can view your profile.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, profile_visibility: 'private' })}
+                className={`p-4 rounded-2xl border text-left transition-all ${
+                  formData.profile_visibility === 'private'
+                    ? 'border-teal-500 bg-teal-50'
+                    : 'border-slate-200 bg-white'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <EyeOff size={16} className={formData.profile_visibility === 'private' ? 'text-teal-600' : 'text-slate-400'} />
+                  <p className="font-black text-sm text-slate-800">Private</p>
+                </div>
+                <p className="text-[11px] font-semibold text-slate-500 mt-1">Only friends can view your profile.</p>
+              </button>
             </div>
 
             <button 
