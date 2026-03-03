@@ -1,5 +1,7 @@
 import { getAccessToken } from './authClient';
 
+const API_BASE = String(process.env.REACT_APP_API_BASE_URL || '').replace(/\/+$/, '');
+
 export function subscribeUserEvents(username, handlers = {}) {
   const cleanUsername = String(username || '').trim();
   if (!cleanUsername) return () => {};
@@ -15,7 +17,8 @@ export function subscribeUserEvents(username, handlers = {}) {
     if (closed) return;
     const token = getAccessToken();
     if (!token) return;
-    const url = `/api/events/${encodeURIComponent(cleanUsername)}?access_token=${encodeURIComponent(token)}`;
+    const path = `/api/events/${encodeURIComponent(cleanUsername)}?access_token=${encodeURIComponent(token)}`;
+    const url = API_BASE ? `${API_BASE}${path}` : path;
     eventSource = new EventSource(url);
 
     eventSource.onopen = () => {
