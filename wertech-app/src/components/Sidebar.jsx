@@ -120,20 +120,6 @@ export default function Sidebar() {
   };
 
   const handleNavClick = async (item) => {
-    if (
-      item.path === '/notifications' &&
-      userRole !== 'admin' &&
-      currentUsername
-    ) {
-      try {
-        await fetch(`/api/notifications/read-all/${encodeURIComponent(currentUsername)}`, {
-          method: 'PATCH'
-        });
-        setUnreadNotifications(0);
-      } catch (err) {
-        // no-op
-      }
-    }
     navigate(item.path);
   };
 

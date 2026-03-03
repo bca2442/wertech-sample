@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCheck, MessageSquareText, BellRing, UserPlus, UserCheck, X } from 'lucide-react';
+import { MessageSquareText, BellRing, UserPlus, UserCheck, X } from 'lucide-react';
 import { subscribeUserEvents } from '../utils/liveEvents';
 import { getApiMessage, toastError, toastSuccess } from '../utils/feedback';
 
@@ -247,25 +247,6 @@ export default function Notifications() {
     }
   };
 
-  const markAllAsRead = async () => {
-    if (!currentUsername) return;
-    try {
-      await Promise.all([
-        fetch(`/api/messages/read-all/${encodeURIComponent(currentUsername)}`, {
-          method: 'PATCH'
-        }),
-        fetch(`/api/notifications/read-all/${encodeURIComponent(currentUsername)}`, {
-          method: 'PATCH'
-        })
-      ]);
-      setMessageNotifications([]);
-      setListingNotifications([]);
-      toastSuccess('All notifications marked as read.');
-    } catch (err) {
-      toastError('Could not mark all notifications as read.');
-    }
-  };
-
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-20 pt-6 px-4">
       <div className="flex justify-between items-end">
@@ -273,13 +254,6 @@ export default function Notifications() {
           <h1 className="text-4xl font-black text-slate-900">Notifications</h1>
           <p className="text-slate-500 font-medium">New listings, requests, and unread chats.</p>
         </div>
-        <button
-          onClick={markAllAsRead}
-          className="flex items-center gap-2 text-teal-600 font-bold text-sm hover:underline disabled:opacity-50"
-          disabled={mergedNotifications.length === 0}
-        >
-          <CheckCheck size={18} /> Mark all as read
-        </button>
       </div>
 
       <div className="space-y-4">
