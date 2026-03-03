@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { bootstrapAuthSession, clearAuthSession, getAccessToken } from './utils/authClient';
+import { subscribeUserEvents } from './utils/liveEvents';
+import { showToast } from './utils/toast';
 
 // Component Imports
 import Sidebar from './components/Sidebar';
@@ -60,6 +62,7 @@ function AppLayout() {
   const userRole = localStorage.getItem('userRole');
   const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
   const [showIntro, setShowIntro] = useState(false);
+  const lastToastKeyRef = useRef('');
 
   useEffect(() => {
     const shouldCheckIntro = location.pathname === '/' && !isAuthenticated;
@@ -71,6 +74,40 @@ function AppLayout() {
     const hasSeenIntro = sessionStorage.getItem('wertech-intro-seen') === 'true';
     setShowIntro(!hasSeenIntro);
   }, [location.pathname, isAuthenticated]);
+
+  useEffect(() => {
+    const currentUsername = localStorage.getItem('username') || '';
+    if (!isAuthenticated || !currentUsername || isAuthPage) return () => {};
+
+    const eventToMessage = (eventType, eventData = {}) => {
+      const payload = eventData?.payload || {};
+      const reason = String(payload.reason || '');
+      const actor = String(payload.actor_username || '').trim();
+
+      if (eventType === 'notification_update') {
+        if (reason === 'friend_request') return `${actor || 'Someone'} sent you a friend request.`;
+        if (reason === 'barter_request') return `${actor || 'Someone'} sent you a barter request.`;
+        if (reason === 'message_request') return `${actor || 'Someone'} sent you a message request.`;
+      }
+      return '';
+    };
+
+    const unsubscribe = subscribeUserEvents(currentUsername, {
+      onEvent: (eventType, eventData) => {
+        const message = eventToMessage(eventType, eventData);
+        if (!message) return;
+        const payload = eventData?.payload || {};
+        const reason = String(payload.reason || '');
+        const actor = String(payload.actor_username || '');
+        const sentAt = String(eventData?.sent_at || '');
+        const key = `${eventType}:${reason}:${actor}:${sentAt}`;
+        if (lastToastKeyRef.current === key) return;
+        lastToastKeyRef.current = key;
+        showToast(message, 'info', 3000);
+      }
+    });
+    return () => unsubscribe();
+  }, [isAuthenticated, isAuthPage]);
 
   const handleCloseIntro = () => {
     sessionStorage.setItem('wertech-intro-seen', 'true');
