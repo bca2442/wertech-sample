@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Send, User, Shield, MoreVertical, Search, Paperclip, Smile, MessageSquare, Trash2, Check, X, Users } from 'lucide-react';
+import { Send, User, Shield, MoreVertical, Search, Paperclip, Smile, MessageSquare, Trash2, Check, X, Users, ArrowLeft } from 'lucide-react';
 import { subscribeUserEvents } from '../utils/liveEvents';
 
 function formatMessageTime(dateValue) {
@@ -25,6 +25,7 @@ function toColorClass(name) {
 }
 
 export default function BarterChat() {
+  const MOBILE_EMOJIS = ['😀', '😂', '😍', '🔥', '👍', '🙏', '🎉', '😎', '🤝', '💬'];
   const location = useLocation();
   const navigate = useNavigate();
   const currentUsername = localStorage.getItem('username') || '';
@@ -41,7 +42,8 @@ export default function BarterChat() {
   const [searchResults, setSearchResults] = useState([]);
   const [sendInfo, setSendInfo] = useState('');
   const [pendingShareListing, setPendingShareListing] = useState(null);
-  const [showMobilePicker, setShowMobilePicker] = useState(false);
+  const [mobileScreen, setMobileScreen] = useState('list');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const threadRef = useRef(null);
 
   const filteredParticipants = useMemo(
@@ -172,6 +174,12 @@ export default function BarterChat() {
     setPendingShareListing(incomingShareListing);
     setSendInfo('Listing selected. Choose a user and send.');
   }, [incomingShareListing, currentUsername]);
+
+  useEffect(() => {
+    if (targetUsername) {
+      setMobileScreen('thread');
+    }
+  }, [targetUsername]);
 
   useEffect(() => {
     if (!selectedUser?.username) {
@@ -348,7 +356,8 @@ export default function BarterChat() {
     setSearchTerm('');
     setSearchResults([]);
     setSendInfo('');
-    setShowMobilePicker(false);
+    setShowEmojiPicker(false);
+    setMobileScreen('thread');
   };
 
   return (
@@ -451,9 +460,97 @@ export default function BarterChat() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col bg-white dark:bg-slate-950">
+      <div className={`lg:hidden flex-1 flex-col bg-white dark:bg-slate-950 ${mobileScreen === 'list' ? 'flex' : 'hidden'}`}>
+        <div className="px-4 py-4 border-b dark:border-slate-800">
+          <h1 className="text-xl font-black dark:text-white">Messages</h1>
+          <div className="relative mt-3">
+            <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search users..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-800 py-3 pl-12 pr-4 rounded-2xl text-sm outline-none border border-slate-100 dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 transition-all dark:text-white"
+            />
+          </div>
+        </div>
+
+        {messageRequests.length > 0 && (
+          <div className="px-4 py-3 border-b dark:border-slate-800">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Requests</p>
+            <div className="space-y-2">
+              {messageRequests.map((req) => (
+                <div key={`mr-${req.sender_username}`} className="p-3 rounded-2xl bg-amber-50/80 border border-amber-100">
+                  <p className="text-xs font-black text-slate-800">{req.sender_username}</p>
+                  <p className="text-[11px] text-slate-500 truncate">{req.latest_text}</p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => handleMessageRequestAction(req.sender_username, 'accept')}
+                      className="flex-1 py-1.5 rounded-lg bg-teal-600 text-white text-[10px] font-black uppercase inline-flex items-center justify-center gap-1"
+                    >
+                      <Check size={12} /> Accept
+                    </button>
+                    <button
+                      onClick={() => handleMessageRequestAction(req.sender_username, 'reject')}
+                      className="flex-1 py-1.5 rounded-lg bg-rose-100 text-rose-600 text-[10px] font-black uppercase inline-flex items-center justify-center gap-1"
+                    >
+                      <X size={12} /> Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+          {searchTerm.trim() && searchResults.length > 0 && searchResults.map((u) => (
+            <button
+              key={`ms-${u.username}`}
+              onClick={() => handleSelectUser(u)}
+              className="w-full p-4 rounded-2xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center justify-between"
+            >
+              <span className="font-bold dark:text-white">{u.username}</span>
+              <span className="text-[10px] font-black uppercase text-teal-500">{u.status || 'Verified'}</span>
+            </button>
+          ))}
+
+          {filteredParticipants.map((user) => (
+            <button
+              key={`mu-${user._id || user.username}`}
+              onClick={() => handleSelectUser(user)}
+              className="w-full p-4 rounded-2xl flex items-center gap-3 border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+            >
+              <div className={`w-10 h-10 ${toColorClass(user.username)} rounded-xl flex items-center justify-center text-white font-black shrink-0`}>
+                {user.username.charAt(0).toUpperCase()}
+              </div>
+              <div className="text-left min-w-0">
+                <p className="font-bold text-sm dark:text-white truncate">{user.username}</p>
+                <p className="text-[10px] font-black uppercase text-teal-500">{user.status || 'Verified'}</p>
+              </div>
+              {Number(user.unread_count || 0) > 0 && (
+                <span className="ml-auto min-w-[20px] h-[20px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">
+                  {user.unread_count > 99 ? '99+' : user.unread_count}
+                </span>
+              )}
+            </button>
+          ))}
+          {!loadingUsers && filteredParticipants.length === 0 && searchResults.length === 0 && (
+            <p className="text-center text-slate-400 text-xs mt-6 italic">No users found.</p>
+          )}
+        </div>
+      </div>
+
+      <div className={`flex-1 ${mobileScreen === 'list' ? 'hidden lg:flex' : 'flex'} flex-col bg-white dark:bg-slate-950`}>
         <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-white/80 dark:bg-slate-950/80 backdrop-blur-md">
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setMobileScreen('list')}
+              className="lg:hidden p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+              title="Back to chats"
+            >
+              <ArrowLeft size={18} />
+            </button>
             <div className={`w-12 h-12 ${activeColor} rounded-2xl flex items-center justify-center text-white`}>
               <User size={24} />
             </div>
@@ -468,7 +565,7 @@ export default function BarterChat() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowMobilePicker(true)}
+              onClick={() => setMobileScreen('list')}
               className="lg:hidden p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-500"
               title="Select user"
             >
@@ -611,7 +708,28 @@ export default function BarterChat() {
                 disabled={!selectedUser}
                 className="w-full bg-white dark:bg-slate-800 dark:text-white py-5 pl-14 pr-14 rounded-[24px] outline-none border dark:border-slate-700 font-bold shadow-sm focus:ring-2 focus:ring-teal-500/20 transition-all disabled:opacity-60"
               />
-              <Smile size={18} className="absolute right-6 text-slate-400" />
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker((prev) => !prev)}
+                className="absolute right-5 p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                disabled={!selectedUser}
+              >
+                <Smile size={18} />
+              </button>
+              {showEmojiPicker && (
+                <div className="absolute bottom-14 right-0 z-[260] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-2 shadow-xl grid grid-cols-5 gap-1">
+                  {MOBILE_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setInput((prev) => `${prev}${emoji}`)}
+                      className="w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-lg"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <button
               type="submit"
@@ -621,102 +739,15 @@ export default function BarterChat() {
               <Send size={24} />
             </button>
           </form>
-        </div>
-      </div>
-
-      {showMobilePicker && (
-        <div className="lg:hidden fixed inset-0 z-[240] bg-slate-950/70 backdrop-blur-sm">
-          <div className="absolute inset-x-0 bottom-0 top-16 bg-white dark:bg-slate-950 rounded-t-[28px] border-t border-slate-200 dark:border-slate-800 flex flex-col">
-            <div className="p-4 border-b dark:border-slate-800 flex items-center justify-between">
-              <h3 className="font-black dark:text-white">Select User</h3>
-              <button onClick={() => setShowMobilePicker(false)} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-4">
-              <div className="relative">
-                <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 py-3 pl-12 pr-4 rounded-2xl text-sm outline-none border border-slate-100 dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 transition-all dark:text-white"
-                />
-              </div>
-            </div>
-
-            {messageRequests.length > 0 && (
-              <div className="px-4 pb-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 mb-2">Message Requests</p>
-                <div className="space-y-2">
-                  {messageRequests.map((req) => (
-                    <div key={`mreq-${req.sender_username}`} className="p-3 rounded-2xl bg-amber-50/80 border border-amber-100">
-                      <p className="text-xs font-black text-slate-800">{req.sender_username}</p>
-                      <p className="text-[11px] text-slate-500 truncate">{req.latest_text}</p>
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          onClick={() => handleMessageRequestAction(req.sender_username, 'accept')}
-                          className="flex-1 py-1.5 rounded-lg bg-teal-600 text-white text-[10px] font-black uppercase inline-flex items-center justify-center gap-1"
-                        >
-                          <Check size={12} /> Accept
-                        </button>
-                        <button
-                          onClick={() => handleMessageRequestAction(req.sender_username, 'reject')}
-                          className="flex-1 py-1.5 rounded-lg bg-rose-100 text-rose-600 text-[10px] font-black uppercase inline-flex items-center justify-center gap-1"
-                        >
-                          <X size={12} /> Reject
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-2">
-              {searchTerm.trim() && searchResults.length > 0 && searchResults.map((u) => (
-                <button
-                  key={`ms-${u.username}`}
-                  onClick={() => handleSelectUser(u)}
-                  className="w-full p-4 rounded-2xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center justify-between"
-                >
-                  <span className="font-bold dark:text-white">{u.username}</span>
-                  <span className="text-[10px] font-black uppercase text-teal-500">{u.status || 'Verified'}</span>
-                </button>
-              ))}
-              {filteredParticipants.map((user) => (
-                <button
-                  key={`mp-${user._id || user.username}`}
-                  onClick={() => handleSelectUser(user)}
-                  className={`w-full p-4 rounded-2xl flex items-center gap-3 transition-all border ${
-                    selectedUser?.username === user.username
-                      ? 'border-teal-200 bg-teal-50/40 dark:border-teal-900 dark:bg-slate-800'
-                      : 'border-slate-100 dark:border-slate-800'
-                  }`}
-                >
-                  <div className={`w-10 h-10 ${toColorClass(user.username)} rounded-xl flex items-center justify-center text-white font-black shrink-0`}>
-                    {user.username.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="text-left min-w-0">
-                    <p className="font-bold text-sm dark:text-white truncate">{user.username}</p>
-                    <p className="text-[10px] font-black uppercase text-teal-500">{user.status || 'Verified'}</p>
-                  </div>
-                  {Number(user.unread_count || 0) > 0 && (
-                    <span className="ml-auto min-w-[20px] h-[20px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">
-                      {user.unread_count > 99 ? '99+' : user.unread_count}
-                    </span>
-                  )}
-                </button>
-              ))}
-              {!loadingUsers && filteredParticipants.length === 0 && searchResults.length === 0 && (
-                <p className="text-center text-slate-400 text-xs mt-6 italic">No users found.</p>
-              )}
-            </div>
+          <div className="max-w-4xl mx-auto mt-2 flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase text-slate-400">Message Type:</span>
+            <span className="text-[10px] px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 font-black text-slate-600 dark:text-slate-300">Text</span>
+            <span className={`text-[10px] px-2 py-1 rounded-full font-black ${pendingShareListing ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-400'}`}>
+              Listing Share
+            </span>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
