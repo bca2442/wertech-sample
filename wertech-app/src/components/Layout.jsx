@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Home, Search, Repeat, Bell, User, Shield, BarChart2 } from 'lucide-react';
+import BrandLogo from './BrandLogo';
 
 const NavItem = ({ to, icon: Icon, label, active }) => (
   <Link to={to}>
@@ -21,7 +22,7 @@ export default function Layout({ children }) {
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside className="w-64 bg-white border-r p-6 fixed h-full z-10">
-        <h1 className="text-2xl font-black text-teal-600 mb-10 tracking-tight italic">WERTECH</h1>
+        <BrandLogo size={32} textClassName="text-2xl mb-10" />
         <nav>
           <NavItem to="/dashboard" icon={Home} label="Dashboard" active={pathname === '/dashboard'} />
           <NavItem to="/explore" icon={Search} label="Explore" active={pathname === '/explore'} />

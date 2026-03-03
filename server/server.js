@@ -277,6 +277,37 @@ function invalidateRealtimeCachesForUser(username) {
   invalidateCachePrefix(`notif-unread-count:${key}`);
 }
 
+async function removeListingNotifications({ listingIds = [], ownerUsername = '' } = {}) {
+  const ids = Array.isArray(listingIds)
+    ? listingIds.map((v) => String(v || '').trim()).filter(Boolean)
+    : [];
+  const owner = String(ownerUsername || '').trim();
+  const orFilters = [];
+  if (ids.length > 0) {
+    orFilters.push({ 'meta.listing_id': { $in: ids } });
+  }
+  if (owner) {
+    orFilters.push({ 'meta.owner_username': owner });
+    orFilters.push({ actor_username: owner });
+  }
+  if (orFilters.length === 0) {
+    return { deleted: 0, recipients: [] };
+  }
+
+  const query = { type: 'listing', $or: orFilters };
+  const recipients = await Notification.distinct('recipient_username', query);
+  const result = await Notification.deleteMany(query);
+  const recipientList = recipients.map((v) => String(v || '').trim()).filter(Boolean);
+  if (recipientList.length > 0) {
+    recipientList.forEach((u) => invalidateRealtimeCachesForUser(u));
+    pushEventToMany(recipientList, 'notification_update', {
+      reason: 'listing_removed',
+      owner_username: owner || null
+    });
+  }
+  return { deleted: Number(result?.deletedCount || 0), recipients: recipientList };
+}
+
 const eventClientsByUser = new Map();
 function addEventClient(username, res) {
   const key = String(username || '');
@@ -1241,6 +1272,21 @@ app.patch('/api/admin/users/:username/account-status', async (req, res) => {
     user.account_state = next;
     await user.save();
 
+    if (next === 'INACTIVE' || next === 'BANNED') {
+      const listings = await Listing.find({ owner_username: username }).select('_id').lean();
+      const listingIds = listings.map((l) => String(l._id || '')).filter(Boolean);
+      if (listingIds.length > 0) {
+        await Listing.deleteMany({ owner_username: username });
+        await removeListingNotifications({ listingIds, ownerUsername: username });
+        invalidateCachePrefix('listings:');
+        pushEvent(username, 'listing_update', {
+          reason: 'bulk_deleted',
+          owner_username: username,
+          count: listingIds.length
+        });
+      }
+    }
+
     return res.json({
       message: "User status updated",
       user: {
@@ -1266,6 +1312,9 @@ app.delete('/api/admin/users/:username', async (req, res) => {
       return res.status(403).json({ message: "Cannot delete admin account" });
     }
 
+    const listings = await Listing.find({ owner_username: username }).select('_id').lean();
+    const listingIds = listings.map((l) => String(l._id || '')).filter(Boolean);
+
     await Promise.all([
       Listing.deleteMany({ owner_username: username }),
       Transaction.deleteMany({ username }),
@@ -1284,6 +1333,10 @@ app.delete('/api/admin/users/:username', async (req, res) => {
       }),
       User.deleteOne({ username })
     ]);
+    if (listingIds.length > 0) {
+      await removeListingNotifications({ listingIds, ownerUsername: username });
+      invalidateCachePrefix('listings:');
+    }
 
     return res.json({ message: "User deleted" });
   } catch (err) {
@@ -1644,6 +1697,11 @@ app.post('/api/friends/request', async (req, res) => {
         message: `${fromUsername} sent you a friend request.`,
         meta: { requester_username: fromUsername }
       });
+      invalidateRealtimeCachesForUser(toUsername);
+      pushEvent(toUsername, 'notification_update', {
+        reason: 'friend_request',
+        actor_username: fromUsername
+      });
     }
 
     return res.status(201).json({ message: "Friend request sent" });
@@ -1723,6 +1781,11 @@ app.post('/api/friends/accept', async (req, res) => {
       title: 'Friend Request Accepted',
       message: `${recipientUsername} accepted your friend request.`,
       meta: { accepter_username: recipientUsername }
+    });
+    invalidateRealtimeCachesForUser(requesterUsername);
+    pushEvent(requesterUsername, 'notification_update', {
+      reason: 'friend_accept',
+      actor_username: recipientUsername
     });
 
     return res.json({ message: "Friend request accepted" });
@@ -1851,6 +1914,11 @@ app.post('/api/barters', async (req, res) => {
         receiver_username: receiverUsername
       }
     });
+    invalidateRealtimeCachesForUser(receiverUsername);
+    pushEvent(receiverUsername, 'notification_update', {
+      reason: 'barter_request',
+      actor_username: senderUsername
+    });
 
     return res.status(201).json(created);
   } catch (err) {
@@ -1914,6 +1982,11 @@ app.patch('/api/barters/:id/status', async (req, res) => {
           sender_username: barter.sender_username,
           receiver_username: barter.receiver_username
         }
+      });
+      invalidateRealtimeCachesForUser(recipient);
+      pushEvent(recipient, 'notification_update', {
+        reason: 'barter_accept',
+        actor_username: requesterUsername
       });
     }
 
@@ -2944,6 +3017,7 @@ app.post('/api/listings', async (req, res) => {
         read: false
       }));
       await Notification.insertMany(notifications);
+      otherUsers.forEach((u) => invalidateRealtimeCachesForUser(u.username));
       pushEventToMany(otherUsers.map((u) => u.username), 'notification_update', {
         reason: 'new_listing',
         actor_username: owner_username
@@ -3037,6 +3111,10 @@ app.delete('/api/listings/:id', async (req, res) => {
     }
 
     await Listing.findByIdAndDelete(id);
+    await removeListingNotifications({
+      listingIds: [String(id)],
+      ownerUsername: String(listing.owner_username || '')
+    });
     invalidateCachePrefix('listings:');
     pushEvent(String(listing.owner_username || ''), 'listing_update', { reason: 'deleted', listing_id: String(id) });
     return res.json({ message: "Listing deleted" });

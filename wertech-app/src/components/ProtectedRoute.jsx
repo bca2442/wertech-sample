@@ -1,16 +1,15 @@
+import React from 'react';
 import { Navigate } from 'react-router-dom';
 
-export const ProtectedRoute = ({ children, isAdmin = false }) => {
-  // Replace this with actual auth logic tonight
-  const user = { loggedIn: true, role: 'admin' }; 
+export default function ProtectedRoute({ children }) {
+  // In a real app, you'd check your Auth state (Firebase/Supabase)
+  // For now, we check a flag in localStorage
+  const userRole = localStorage.getItem('userRole'); 
 
-  if (!user.loggedIn) {
-    return <Navigate to="/login" />;
-  }
-
-  if (isAdmin && user.role !== 'admin') {
-    return <Navigate to="/dashboard" />;
+  if (userRole !== 'admin') {
+    // If not an admin, redirect to home or login
+    return <Navigate to="/" replace />;
   }
 
   return children;
-};
+}
