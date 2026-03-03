@@ -567,12 +567,12 @@ export default function Explore() {
                     <h2 className="text-3xl font-black dark:text-white mt-1">{selectedItem.title}</h2>
                   </div>
                   <p className="text-slate-500 dark:text-slate-400 font-bold leading-relaxed">{selectedItem.desc}</p>
-                  <div className="pt-6 border-t dark:border-slate-800 flex items-center justify-between">
+                  <div className="pt-6 border-t dark:border-slate-800 space-y-4">
                     <div>
                       <p className="text-3xl font-black text-teal-600">{selectedItem.wtk} WTK</p>
                       <p className="text-[10px] font-black text-slate-400 uppercase">Owner: {selectedItem.user}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       {selectedItem.user !== currentUsername && (
                         <button
                           onClick={() => {
@@ -580,7 +580,7 @@ export default function Explore() {
                             setTxStatus('');
                             setShowTransactionModal(true);
                           }}
-                          className="bg-emerald-600 text-white px-6 py-4 rounded-2xl font-black uppercase text-xs flex items-center gap-2 hover:bg-emerald-700 transition-all"
+                          className="w-full bg-emerald-600 text-white px-5 py-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all"
                         >
                           Transaction <ArrowUpRight size={16} />
                         </button>
@@ -601,13 +601,13 @@ export default function Explore() {
                             }
                           })
                         }
-                        className="bg-slate-900 text-white px-6 py-4 rounded-2xl font-black uppercase text-xs flex items-center gap-2 hover:bg-slate-800 transition-all"
+                        className="w-full bg-slate-900 text-white px-5 py-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"
                       >
                         Share <Share2 size={16} />
                       </button>
                       <button
                         onClick={() => navigate('/barter-request', { state: { item: selectedItem } })}
-                        className="bg-teal-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs flex items-center gap-2 hover:bg-teal-700 transition-all"
+                        className="w-full bg-teal-600 text-white px-5 py-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-teal-700 transition-all"
                       >
                         Propose Trade <Zap size={16} />
                       </button>

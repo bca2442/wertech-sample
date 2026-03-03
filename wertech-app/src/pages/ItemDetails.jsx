@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Coins, MapPin, Share2, Zap } from 'lucide-react';
+import { ArrowLeft, Coins, MapPin, Share2, Zap, ArrowUpRight, X } from 'lucide-react';
 
 export default function ItemDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const currentUsername = localStorage.getItem('username') || '';
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [txAmount, setTxAmount] = useState('');
+  const [txStatus, setTxStatus] = useState('');
 
   useEffect(() => {
     const loadListing = async () => {
@@ -31,6 +35,40 @@ export default function ItemDetails() {
     };
     loadListing();
   }, [id]);
+
+  const handleListingTransaction = async () => {
+    if (!listing?.owner_username || !currentUsername) return;
+    const amount = Number(txAmount);
+    if (!amount || amount <= 0) {
+      setTxStatus('Enter a valid WTK amount.');
+      return;
+    }
+    try {
+      const response = await fetch('/api/transactions/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: currentUsername,
+          type: 'spent',
+          selectedUser: listing.owner_username,
+          wtk: amount
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setTxStatus(data.message || 'Transaction failed.');
+        return;
+      }
+      setTxStatus('Transaction completed. Added to history.');
+      setTimeout(() => {
+        setShowTransactionModal(false);
+        setTxStatus('');
+        navigate('/history');
+      }, 900);
+    } catch (err) {
+      setTxStatus('Could not complete transaction.');
+    }
+  };
 
   if (loading) {
     return <div className="p-10 text-sm font-bold text-slate-400">Loading listing...</div>;
@@ -72,7 +110,19 @@ export default function ItemDetails() {
           <p className="text-xs font-black uppercase text-slate-400">Owner: {listing.owner_username}</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {listing.owner_username !== currentUsername && (
+            <button
+              onClick={() => {
+                setTxAmount(String(listing.wtk || ''));
+                setTxStatus('');
+                setShowTransactionModal(true);
+              }}
+              className="py-4 rounded-2xl bg-emerald-600 text-white font-black text-sm inline-flex justify-center items-center gap-2 hover:bg-emerald-700"
+            >
+              <ArrowUpRight size={16} /> Transaction
+            </button>
+          )}
           <button
             onClick={() => navigate('/barter-request', { state: { item: listing } })}
             className="py-4 rounded-2xl bg-teal-600 text-white font-black text-sm inline-flex justify-center items-center gap-2 hover:bg-teal-700"
@@ -105,6 +155,50 @@ export default function ItemDetails() {
           </button>
         </div>
       </div>
+
+      {showTransactionModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md">
+          <div className="w-full max-w-md rounded-[32px] bg-white border border-slate-100 shadow-2xl p-7">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-black text-slate-900">Confirm Transaction</h3>
+              <button
+                onClick={() => setShowTransactionModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition-all"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 font-medium">
+              Send WTK to <span className="font-black text-slate-900">{listing.owner_username}</span> for this listing.
+            </p>
+            <input
+              type="number"
+              min="1"
+              value={txAmount}
+              onChange={(e) => setTxAmount(e.target.value)}
+              className="w-full mt-4 p-4 rounded-2xl bg-slate-100 outline-none"
+              placeholder="Enter WTK amount"
+            />
+            {txStatus && (
+              <p className="mt-3 text-xs font-bold text-amber-600">{txStatus}</p>
+            )}
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowTransactionModal(false)}
+                className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleListingTransaction}
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-all"
+              >
+                Pay Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
