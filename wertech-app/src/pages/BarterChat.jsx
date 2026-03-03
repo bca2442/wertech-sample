@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Send, User, Shield, MoreVertical, Search, Paperclip, Smile, MessageSquare, Trash2, Check, X } from 'lucide-react';
+import { Send, User, Shield, MoreVertical, Search, Paperclip, Smile, MessageSquare, Trash2, Check, X, Users } from 'lucide-react';
 import { subscribeUserEvents } from '../utils/liveEvents';
 
 function formatMessageTime(dateValue) {
@@ -41,6 +41,7 @@ export default function BarterChat() {
   const [searchResults, setSearchResults] = useState([]);
   const [sendInfo, setSendInfo] = useState('');
   const [pendingShareListing, setPendingShareListing] = useState(null);
+  const [showMobilePicker, setShowMobilePicker] = useState(false);
   const threadRef = useRef(null);
 
   const filteredParticipants = useMemo(
@@ -339,9 +340,19 @@ export default function BarterChat() {
 
   const activeName = selectedUser?.username || 'Select a user';
   const activeColor = toColorClass(activeName);
+  const handleSelectUser = (user) => {
+    setSelectedUser(user);
+    setParticipants((prev) =>
+      prev.map((p) => (p.username === user.username ? { ...p, unread_count: 0 } : p))
+    );
+    setSearchTerm('');
+    setSearchResults([]);
+    setSendInfo('');
+    setShowMobilePicker(false);
+  };
 
   return (
-    <div className="flex h-[85vh] bg-white dark:bg-slate-950 rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 m-6">
+    <div className="flex h-[calc(100vh-1.5rem)] md:h-[85vh] bg-white dark:bg-slate-950 rounded-[32px] md:rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 m-3 md:m-6">
       <div className="w-80 border-r dark:border-slate-800 hidden lg:flex flex-col bg-slate-50/50 dark:bg-slate-900/50">
         <div className="p-8">
           <h1 className="text-2xl font-black dark:text-white mb-6">Messages</h1>
@@ -360,12 +371,7 @@ export default function BarterChat() {
               {searchResults.map((u) => (
                 <button
                   key={`search-${u.username}`}
-                  onClick={() => {
-                    setSelectedUser(u);
-                    setSearchTerm('');
-                    setSearchResults([]);
-                    setSendInfo('');
-                  }}
+                  onClick={() => handleSelectUser(u)}
                   className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm font-bold dark:text-white"
                 >
                   {u.username}
@@ -408,12 +414,7 @@ export default function BarterChat() {
           {!loadingUsers && filteredParticipants.length > 0 && filteredParticipants.map((user) => (
             <button
               key={user._id || user.username}
-              onClick={() => {
-                setSelectedUser(user);
-                setParticipants((prev) =>
-                  prev.map((p) => (p.username === user.username ? { ...p, unread_count: 0 } : p))
-                );
-              }}
+              onClick={() => handleSelectUser(user)}
               className={`w-full p-4 rounded-3xl flex items-center gap-4 transition-all ${
                 selectedUser?.username === user.username
                   ? 'bg-white dark:bg-slate-800 shadow-md border border-teal-100 dark:border-teal-900'
@@ -465,9 +466,18 @@ export default function BarterChat() {
               </p>
             </div>
           </div>
-          <button className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-400">
-            <MoreVertical size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowMobilePicker(true)}
+              className="lg:hidden p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-500"
+              title="Select user"
+            >
+              <Users size={20} />
+            </button>
+            <button className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-400">
+              <MoreVertical size={20} />
+            </button>
+          </div>
         </div>
 
         <div ref={threadRef} className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
@@ -613,6 +623,100 @@ export default function BarterChat() {
           </form>
         </div>
       </div>
+
+      {showMobilePicker && (
+        <div className="lg:hidden fixed inset-0 z-[240] bg-slate-950/70 backdrop-blur-sm">
+          <div className="absolute inset-x-0 bottom-0 top-16 bg-white dark:bg-slate-950 rounded-t-[28px] border-t border-slate-200 dark:border-slate-800 flex flex-col">
+            <div className="p-4 border-b dark:border-slate-800 flex items-center justify-between">
+              <h3 className="font-black dark:text-white">Select User</h3>
+              <button onClick={() => setShowMobilePicker(false)} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="relative">
+                <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-800 py-3 pl-12 pr-4 rounded-2xl text-sm outline-none border border-slate-100 dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 transition-all dark:text-white"
+                />
+              </div>
+            </div>
+
+            {messageRequests.length > 0 && (
+              <div className="px-4 pb-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 mb-2">Message Requests</p>
+                <div className="space-y-2">
+                  {messageRequests.map((req) => (
+                    <div key={`mreq-${req.sender_username}`} className="p-3 rounded-2xl bg-amber-50/80 border border-amber-100">
+                      <p className="text-xs font-black text-slate-800">{req.sender_username}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{req.latest_text}</p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => handleMessageRequestAction(req.sender_username, 'accept')}
+                          className="flex-1 py-1.5 rounded-lg bg-teal-600 text-white text-[10px] font-black uppercase inline-flex items-center justify-center gap-1"
+                        >
+                          <Check size={12} /> Accept
+                        </button>
+                        <button
+                          onClick={() => handleMessageRequestAction(req.sender_username, 'reject')}
+                          className="flex-1 py-1.5 rounded-lg bg-rose-100 text-rose-600 text-[10px] font-black uppercase inline-flex items-center justify-center gap-1"
+                        >
+                          <X size={12} /> Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-2">
+              {searchTerm.trim() && searchResults.length > 0 && searchResults.map((u) => (
+                <button
+                  key={`ms-${u.username}`}
+                  onClick={() => handleSelectUser(u)}
+                  className="w-full p-4 rounded-2xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center justify-between"
+                >
+                  <span className="font-bold dark:text-white">{u.username}</span>
+                  <span className="text-[10px] font-black uppercase text-teal-500">{u.status || 'Verified'}</span>
+                </button>
+              ))}
+              {filteredParticipants.map((user) => (
+                <button
+                  key={`mp-${user._id || user.username}`}
+                  onClick={() => handleSelectUser(user)}
+                  className={`w-full p-4 rounded-2xl flex items-center gap-3 transition-all border ${
+                    selectedUser?.username === user.username
+                      ? 'border-teal-200 bg-teal-50/40 dark:border-teal-900 dark:bg-slate-800'
+                      : 'border-slate-100 dark:border-slate-800'
+                  }`}
+                >
+                  <div className={`w-10 h-10 ${toColorClass(user.username)} rounded-xl flex items-center justify-center text-white font-black shrink-0`}>
+                    {user.username.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="text-left min-w-0">
+                    <p className="font-bold text-sm dark:text-white truncate">{user.username}</p>
+                    <p className="text-[10px] font-black uppercase text-teal-500">{user.status || 'Verified'}</p>
+                  </div>
+                  {Number(user.unread_count || 0) > 0 && (
+                    <span className="ml-auto min-w-[20px] h-[20px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">
+                      {user.unread_count > 99 ? '99+' : user.unread_count}
+                    </span>
+                  )}
+                </button>
+              ))}
+              {!loadingUsers && filteredParticipants.length === 0 && searchResults.length === 0 && (
+                <p className="text-center text-slate-400 text-xs mt-6 italic">No users found.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
