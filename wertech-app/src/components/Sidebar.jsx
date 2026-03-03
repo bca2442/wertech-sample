@@ -202,10 +202,7 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      <div className="md:hidden fixed top-3 left-3 right-3 z-[120] flex items-center justify-between">
-        <div className="app-card px-3 py-2 border border-fuchsia-100/70 dark:border-indigo-300/20">
-          <BrandLogo size={24} textClassName="text-lg" />
-        </div>
+      <div className="md:hidden fixed top-3 right-3 z-[120] flex items-center justify-end">
         <button
           onClick={() => setShowMobileMenu(true)}
           className="app-card p-3 border border-fuchsia-100/70 dark:border-indigo-300/20 text-slate-700 dark:text-slate-100"
