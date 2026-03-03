@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Compass, MessageSquare, 
   Handshake, BarChart3, Bell, UserCircle, 
   Settings, LogOut, History, Coins,
-  Users, ShieldCheck, UserCheck // Added UserCheck icon
+  Users, ShieldCheck, UserCheck, Menu, X
 } from 'lucide-react';
 import BrandLogo from './BrandLogo';
 import { logoutFromServer } from '../utils/authClient';
@@ -18,6 +18,7 @@ export default function Sidebar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   // 1. ADMIN TABS - Fixed Syntax & Icons
   const adminItems = [
@@ -99,7 +100,8 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="w-72 app-card border-r border-fuchsia-100/70 dark:border-indigo-300/20 h-screen p-8 flex flex-col transition-colors duration-500 sticky top-0 rounded-none">
+    <>
+    <div className="hidden md:flex w-72 app-card border-r border-fuchsia-100/70 dark:border-indigo-300/20 h-screen p-8 flex-col transition-colors duration-500 sticky top-0 rounded-none">
       
       <div className="mb-12 px-2">
         <div className="flex items-center gap-2">
@@ -193,6 +195,91 @@ export default function Sidebar() {
         </div>
       )}
     </div>
+
+    <div className="md:hidden fixed top-3 left-3 right-3 z-[120] flex items-center justify-between">
+      <div className="app-card px-3 py-2 border border-fuchsia-100/70 dark:border-indigo-300/20">
+        <BrandLogo size={24} textClassName="text-lg" />
+      </div>
+      <button
+        onClick={() => setShowMobileMenu(true)}
+        className="app-card p-3 border border-fuchsia-100/70 dark:border-indigo-300/20 text-slate-700 dark:text-slate-100"
+        aria-label="Open menu"
+      >
+        <Menu size={18} />
+      </button>
+    </div>
+
+    <div className="md:hidden fixed bottom-0 inset-x-0 z-[121] app-card rounded-none border-t border-fuchsia-100/70 dark:border-indigo-300/20 bg-white/95 dark:bg-slate-900/95">
+      <div className="flex overflow-x-auto scrollbar-hide px-2 py-2 gap-1">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <button
+              key={`m-${item.name}`}
+              onClick={() => handleNavClick(item)}
+              className={`shrink-0 min-w-[84px] px-3 py-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 ${
+                isActive
+                  ? 'bg-gradient-to-r from-fuchsia-500 via-orange-500 to-cyan-500 text-white'
+                  : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              {item.icon}
+              <span className="truncate">{item.name}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+
+    {showMobileMenu && (
+      <div className="md:hidden fixed inset-0 z-[130] bg-slate-950/65 backdrop-blur-sm">
+        <div className="absolute right-0 top-0 h-full w-[86%] max-w-sm app-card rounded-none border-l border-fuchsia-100/70 dark:border-indigo-300/20 p-6 overflow-y-auto">
+          <div className="flex items-center justify-between">
+            <BrandLogo size={26} textClassName="text-xl" />
+            <button
+              onClick={() => setShowMobileMenu(false)}
+              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label="Close menu"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <nav className="mt-6 space-y-2">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <button
+                  key={`d-${item.name}`}
+                  onClick={() => {
+                    setShowMobileMenu(false);
+                    handleNavClick(item);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold ${
+                    isActive
+                      ? 'bg-gradient-to-r from-fuchsia-500 via-orange-500 to-cyan-500 text-white'
+                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {item.icon}
+                  <span>{item.name}</span>
+                </button>
+              );
+            })}
+          </nav>
+          <button
+            onClick={() => {
+              setShowMobileMenu(false);
+              setShowLogoutModal(true);
+            }}
+            className="mt-6 w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-300 font-black"
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

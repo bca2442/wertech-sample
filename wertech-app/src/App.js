@@ -78,11 +78,11 @@ function AppLayout() {
   };
 
   return (
-    <div className="app-shell flex">
+    <div className="app-shell flex flex-col md:flex-row">
       <AnimatePresence>{showIntro && <AppIntro onDone={handleCloseIntro} />}</AnimatePresence>
       {!isAuthPage && <Sidebar />}
       
-      <main className="app-main flex-1">
+      <main className="app-main flex-1 pb-24 md:pb-0">
         <div className="app-content">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
