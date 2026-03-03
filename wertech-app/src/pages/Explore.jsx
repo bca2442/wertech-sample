@@ -552,24 +552,24 @@ export default function Explore() {
 
       <AnimatePresence>
         {selectedItem && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-6 bg-slate-950/60 backdrop-blur-md">
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white dark:bg-slate-900 w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-[26px] md:rounded-[40px] overflow-hidden relative shadow-2xl border dark:border-slate-800">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-6 bg-slate-950/60 backdrop-blur-md">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white dark:bg-slate-900 w-full max-w-[92vw] md:max-w-3xl max-h-[86vh] md:max-h-[92vh] overflow-y-auto rounded-[20px] md:rounded-[40px] overflow-hidden relative shadow-2xl border dark:border-slate-800">
               <button onClick={() => setSelectedItem(null)} className="absolute top-6 right-6 z-10 p-3 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-red-500 transition-all"><X size={20} /></button>
               <div className="grid grid-cols-1 md:grid-cols-2">
                 {selectedItem.image ? (
-                  <img src={selectedItem.image} className="h-64 md:h-full object-cover" alt="" />
+                  <img src={selectedItem.image} className="h-44 sm:h-52 md:h-full object-cover" alt="" />
                 ) : (
-                  <div className="h-64 md:h-full bg-slate-100 dark:bg-slate-800" />
+                  <div className="h-44 sm:h-52 md:h-full bg-slate-100 dark:bg-slate-800" />
                 )}
-                <div className="p-5 sm:p-6 md:p-10 space-y-5 md:space-y-6">
+                <div className="p-4 sm:p-5 md:p-10 space-y-4 md:space-y-6">
                   <div>
                     <span className="text-teal-600 font-black text-[10px] uppercase tracking-widest">{selectedItem.category}</span>
-                    <h2 className="text-3xl font-black dark:text-white mt-1">{selectedItem.title}</h2>
+                    <h2 className="text-2xl md:text-3xl font-black dark:text-white mt-1">{selectedItem.title}</h2>
                   </div>
-                  <p className="text-slate-500 dark:text-slate-400 font-bold leading-relaxed">{selectedItem.desc}</p>
+                  <p className="text-slate-500 dark:text-slate-400 font-bold text-sm md:text-base leading-relaxed">{selectedItem.desc}</p>
                   <div className="pt-6 border-t dark:border-slate-800 space-y-4">
                     <div>
-                      <p className="text-3xl font-black text-teal-600">{selectedItem.wtk} WTK</p>
+                      <p className="text-2xl md:text-3xl font-black text-teal-600">{selectedItem.wtk} WTK</p>
                       <p className="text-[10px] font-black text-slate-400 uppercase">Owner: {selectedItem.user}</p>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
