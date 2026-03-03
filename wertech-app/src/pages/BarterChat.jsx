@@ -45,15 +45,18 @@ export default function BarterChat() {
   const [mobileScreen, setMobileScreen] = useState('list');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const threadRef = useRef(null);
+  const liveSyncTimerRef = useRef(null);
 
   const filteredParticipants = useMemo(
     () => participants.filter((p) => p.username.toLowerCase().includes(searchTerm.toLowerCase())),
     [participants, searchTerm]
   );
 
-  const loadParticipants = useCallback(async () => {
+  const loadParticipants = useCallback(async ({ silent = false } = {}) => {
     if (!currentUsername) return;
-    setLoadingUsers(true);
+    if (!silent) {
+      setLoadingUsers(true);
+    }
     try {
       const response = await fetch(`/api/chat/users/${encodeURIComponent(currentUsername)}`);
       const data = await response.json();
@@ -80,13 +83,17 @@ export default function BarterChat() {
     } catch (err) {
       // no-op fallback
     } finally {
-      setLoadingUsers(false);
+      if (!silent) {
+        setLoadingUsers(false);
+      }
     }
   }, [currentUsername, targetUsername]);
 
-  const loadThread = useCallback(async (otherUsername) => {
+  const loadThread = useCallback(async (otherUsername, { silent = false } = {}) => {
     if (!currentUsername || !otherUsername) return;
-    setLoadingMessages(true);
+    if (!silent) {
+      setLoadingMessages(true);
+    }
     try {
       const response = await fetch(
         `/api/messages/thread/${encodeURIComponent(currentUsername)}/${encodeURIComponent(otherUsername)}?page=1&limit=80`
@@ -98,7 +105,9 @@ export default function BarterChat() {
     } catch (err) {
       // no-op fallback
     } finally {
-      setLoadingMessages(false);
+      if (!silent) {
+        setLoadingMessages(false);
+      }
     }
   }, [currentUsername]);
 
@@ -192,7 +201,7 @@ export default function BarterChat() {
     const boot = async () => {
       await loadThread(selectedUser.username);
       await markThreadAsRead(selectedUser.username);
-      await loadParticipants();
+      await loadParticipants({ silent: true });
     };
     boot();
     return undefined;
@@ -203,15 +212,27 @@ export default function BarterChat() {
     const unsubscribe = subscribeUserEvents(currentUsername, {
       onEvent: async (type) => {
         if (type !== 'message_update' && type !== 'notification_update') return;
-        await loadParticipants();
-        await loadMessageRequests();
-        if (selectedUser?.username) {
-          await loadThread(selectedUser.username);
-          await markThreadAsRead(selectedUser.username);
+        if (liveSyncTimerRef.current) {
+          clearTimeout(liveSyncTimerRef.current);
         }
+        liveSyncTimerRef.current = setTimeout(async () => {
+          liveSyncTimerRef.current = null;
+          await loadParticipants({ silent: true });
+          await loadMessageRequests();
+          if (selectedUser?.username) {
+            await loadThread(selectedUser.username, { silent: true });
+            await markThreadAsRead(selectedUser.username);
+          }
+        }, 180);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (liveSyncTimerRef.current) {
+        clearTimeout(liveSyncTimerRef.current);
+        liveSyncTimerRef.current = null;
+      }
+    };
   }, [currentUsername, selectedUser?.username, loadParticipants, loadMessageRequests, loadThread, markThreadAsRead]);
 
   useEffect(() => {
@@ -246,8 +267,8 @@ export default function BarterChat() {
       } else {
         setSendInfo('');
       }
-      await loadThread(selectedUser.username);
-      await loadParticipants();
+      await loadThread(selectedUser.username, { silent: true });
+      await loadParticipants({ silent: true });
       await loadMessageRequests();
     } catch (err) {
       // no-op fallback
@@ -278,8 +299,8 @@ export default function BarterChat() {
         setSendInfo('Listing shared.');
       }
       setPendingShareListing(null);
-      await loadThread(selectedUser.username);
-      await loadParticipants();
+      await loadThread(selectedUser.username, { silent: true });
+      await loadParticipants({ silent: true });
       await loadMessageRequests();
     } catch (err) {
       // no-op
@@ -299,8 +320,8 @@ export default function BarterChat() {
       });
       if (!response.ok) return;
       if (selectedUser?.username) {
-        await loadThread(selectedUser.username);
-        await loadParticipants();
+        await loadThread(selectedUser.username, { silent: true });
+        await loadParticipants({ silent: true });
         await loadMessageRequests();
       }
     } catch (err) {
@@ -320,7 +341,7 @@ export default function BarterChat() {
       setMessages((prev) =>
         prev.map((msg) => (msg._id === messageId ? { ...msg, read_by_receiver: true } : msg))
       );
-      await loadParticipants();
+      await loadParticipants({ silent: true });
       await loadMessageRequests();
     } catch (err) {
       // no-op
@@ -336,10 +357,10 @@ export default function BarterChat() {
       );
       if (!response.ok) return;
       await loadMessageRequests();
-      await loadParticipants();
+      await loadParticipants({ silent: true });
       if (action === 'accept') {
         setSelectedUser({ username: senderUsername, status: 'Verified' });
-        await loadThread(senderUsername);
+        await loadThread(senderUsername, { silent: true });
       }
     } catch (err) {
       // no-op

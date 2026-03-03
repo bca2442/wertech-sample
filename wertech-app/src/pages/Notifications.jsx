@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MessageSquareText, BellRing, UserPlus, UserCheck, X } from 'lucide-react';
@@ -26,11 +26,14 @@ export default function Notifications() {
   const [listingNotifications, setListingNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const liveRefreshTimerRef = useRef(null);
 
-  const loadNotifications = useCallback(async () => {
+  const loadNotifications = useCallback(async ({ silent = false } = {}) => {
     if (!currentUsername) return;
-    setLoading(true);
-    setError('');
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const [msgResponse, listingResponse] = await Promise.all([
         fetch(`/api/messages/unread/${encodeURIComponent(currentUsername)}?page=1&limit=50`),
@@ -48,11 +51,17 @@ export default function Notifications() {
       }
       if (!msgResponse.ok || !listingResponse.ok) {
         setError(getApiMessage(msgData, getApiMessage(listingData, 'Could not load notifications.')));
+      } else if (!silent) {
+        setError('');
       }
     } catch (err) {
-      setError('Could not load notifications.');
+      if (!silent) {
+        setError('Could not load notifications.');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [currentUsername]);
 
@@ -61,11 +70,23 @@ export default function Notifications() {
     const unsubscribe = subscribeUserEvents(currentUsername, {
       onEvent: (type) => {
         if (type === 'message_update' || type === 'notification_update') {
-          loadNotifications();
+          if (liveRefreshTimerRef.current) {
+            clearTimeout(liveRefreshTimerRef.current);
+          }
+          liveRefreshTimerRef.current = setTimeout(() => {
+            liveRefreshTimerRef.current = null;
+            loadNotifications({ silent: true });
+          }, 180);
         }
       }
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (liveRefreshTimerRef.current) {
+        clearTimeout(liveRefreshTimerRef.current);
+        liveRefreshTimerRef.current = null;
+      }
+    };
   }, [loadNotifications, currentUsername]);
 
   const groupedMessages = useMemo(() => {
