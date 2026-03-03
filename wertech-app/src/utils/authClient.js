@@ -162,7 +162,9 @@ async function refreshTokens() {
 
 async function authFetchImpl(input, init = {}) {
   const fetchImpl = ensureNativeFetch();
-  const url = toUrlString(input);
+  const rawUrl = toUrlString(input);
+  const finalInput = rawUrl.startsWith('/api/') && API_BASE ? resolveApiUrl(rawUrl) : input;
+  const url = toUrlString(finalInput);
   const apiRequest = isApiRequest(url);
   const requestInit = { ...init };
   requestInit.headers = { ...(requestInit.headers || {}) };
@@ -174,7 +176,7 @@ async function authFetchImpl(input, init = {}) {
     }
   }
 
-  let response = await fetchWithPolicy(fetchImpl, input, requestInit);
+  let response = await fetchWithPolicy(fetchImpl, finalInput, requestInit);
   if (!apiRequest || response.status !== 401) {
     return response;
   }
@@ -189,7 +191,7 @@ async function authFetchImpl(input, init = {}) {
   const retryInit = { ...init, headers: { ...(init?.headers || {}) } };
   const nextAccess = getAccessToken();
   if (nextAccess) retryInit.headers.Authorization = `Bearer ${nextAccess}`;
-  response = await fetchWithPolicy(fetchImpl, input, retryInit);
+  response = await fetchWithPolicy(fetchImpl, finalInput, retryInit);
   if (response.status === 401) {
     clearAuthSession();
   }
