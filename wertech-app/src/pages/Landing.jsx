@@ -6,7 +6,6 @@ import {
   Coins,
   ShieldCheck,
   Repeat,
-  Users,
   BarChart3,
   Clock3,
   Mail,
@@ -193,23 +192,6 @@ export default function Landing() {
         </footer>
       </div>
     </div>
-  );
-}
-
-function FloatingCard({ icon, title, value, desc, delay }) {
-  return (
-    <FloatingCardWrapper delay={delay}>
-      <motion.div
-        animate={{ y: [0, -4, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay }}
-        className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center"
-      >
-        {icon}
-      </motion.div>
-      <p className="mt-5 text-[11px] uppercase tracking-widest font-black text-slate-400">{title}</p>
-      <h3 className="mt-1 text-2xl font-black text-slate-900">{value}</h3>
-      <p className="mt-2 text-sm font-medium text-slate-500">{desc}</p>
-    </FloatingCardWrapper>
   );
 }
 
