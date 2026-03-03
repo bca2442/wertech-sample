@@ -262,7 +262,7 @@ export default function Dashboard() {
       {/* --- MODAL: EDIT TRUST RATING --- */}
       <AnimatePresence>
         {isRatingModalOpen && (
-          <div className="fixed inset-0 z-[130] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md">
+          <div className="fixed inset-0 z-[220] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[40px] p-10 shadow-2xl border dark:border-slate-800">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-black dark:text-white">Update Rating</h2>
@@ -294,7 +294,7 @@ export default function Dashboard() {
       {/* MODAL: ACTIVE BARTERS */}
       <AnimatePresence>
         {isBarterModalOpen && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md">
+          <div className="fixed inset-0 z-[220] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[50px] overflow-hidden flex flex-col shadow-2xl border dark:border-slate-800">
               <div className="p-10 border-b dark:border-slate-800 flex justify-between items-center">
                 <div>
@@ -344,7 +344,7 @@ export default function Dashboard() {
       {/* MODAL: QUICK TRANSACTION */}
       <AnimatePresence>
         {isDoneModalOpen && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md">
+          <div className="fixed inset-0 z-[220] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[40px] p-10 shadow-2xl border border-slate-100 dark:border-slate-800">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-black dark:text-white">WTK Transfer</h2>
