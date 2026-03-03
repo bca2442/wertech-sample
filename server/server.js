@@ -505,7 +505,8 @@ function validateApiRequest(req, res, next) {
   if (method === 'POST' && path === '/transactions/apply') {
     requireString('body', 'username', 'username');
     requireString('body', 'type', 'type');
-    requireString('body', 'title', 'title');
+    requireString('body', 'selectedUser', 'selectedUser');
+    optionalPositiveInt('body', 'wtk');
   }
   if (method === 'POST' && path === '/messages') {
     requireString('body', 'sender_username', 'sender_username');
