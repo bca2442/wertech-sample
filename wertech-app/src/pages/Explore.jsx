@@ -284,8 +284,8 @@ export default function Explore() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-8 space-y-8 max-w-7xl mx-auto relative">
-      <div className="flex flex-col md:flex-row gap-4 items-center">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 sm:p-4 md:p-8 space-y-6 md:space-y-8 max-w-7xl mx-auto relative">
+      <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center">
         <div className="flex-1 relative w-full">
           <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-teal-600" size={20} />
           <input
@@ -297,15 +297,15 @@ export default function Explore() {
               }
             }}
             placeholder={SEARCH_SUGGESTIONS[suggestionIndex]}
-            className="w-full pl-16 pr-6 py-5 bg-white dark:bg-slate-900 rounded-[24px] border border-slate-100 dark:border-slate-800 outline-none ring-2 ring-transparent focus:ring-teal-500 transition-all font-bold shadow-sm dark:text-white"
+            className="w-full pl-14 md:pl-16 pr-5 md:pr-6 py-4 md:py-5 bg-white dark:bg-slate-900 rounded-[20px] md:rounded-[24px] border border-slate-100 dark:border-slate-800 outline-none ring-2 ring-transparent focus:ring-teal-500 transition-all font-bold shadow-sm dark:text-white"
           />
         </div>
 
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col md:items-end gap-2 w-full md:w-auto">
           {activeTab !== 'Users' && (
             <button
               onClick={() => setShowFilters(true)}
-              className={`p-5 rounded-[24px] transition-all flex items-center gap-3 shadow-lg ${showFilters ? 'bg-teal-600 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+              className={`w-full md:w-auto p-4 md:p-5 rounded-[20px] md:rounded-[24px] transition-all flex items-center justify-center gap-3 shadow-lg ${showFilters ? 'bg-teal-600 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
             >
               <SlidersHorizontal size={24} />
               <span className="font-bold text-sm">Product Filters</span>
@@ -328,7 +328,7 @@ export default function Explore() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
         {TABS.map((tab) => (
           <button
             key={tab}
@@ -336,7 +336,7 @@ export default function Explore() {
               setActiveTab(tab);
               saveSearchHistory(searchQuery);
             }}
-            className={`px-5 py-2.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${
+            className={`shrink-0 px-4 md:px-5 py-2.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${
               activeTab === tab
                 ? 'bg-gradient-to-r from-rose-500 via-orange-500 to-lime-700 text-white'
                 : 'bg-white text-slate-500 border border-slate-200 hover:border-teal-400 hover:text-teal-600'
@@ -348,7 +348,7 @@ export default function Explore() {
       </div>
 
       {searchHistory.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] p-4">
+        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] p-3 md:p-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Search History</p>
           <div className="flex flex-wrap gap-2">
             {visibleHistory.map((item) => (
@@ -418,7 +418,7 @@ export default function Explore() {
         {showFilters && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowFilters(false)} className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60]" />
-            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="fixed right-0 top-0 h-full w-full max-w-sm bg-white dark:bg-slate-900 z-[70] p-10 shadow-2xl space-y-10">
+            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} className="fixed right-0 top-0 h-full w-full max-w-sm bg-white dark:bg-slate-900 z-[70] p-6 md:p-10 shadow-2xl space-y-8 md:space-y-10">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-black dark:text-white">Product Filters</h2>
                 <button onClick={() => setShowFilters(false)} className="p-2 dark:text-white"><X /></button>
@@ -517,17 +517,17 @@ export default function Explore() {
 
       {showProducts && (
         <section className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-8">
             <AnimatePresence mode="popLayout">
               {filteredListings.map((item) => (
-                <motion.div layout key={item.id} className="bg-white dark:bg-slate-900 rounded-[40px] border dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-2xl transition-all">
+                <motion.div layout key={item.id} className="bg-white dark:bg-slate-900 rounded-[28px] md:rounded-[40px] border dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-2xl transition-all">
                   {item.image && (
                     <div className="h-52 overflow-hidden relative">
                       <img src={item.image} alt="" className="w-full h-full object-cover" />
                       <span className="absolute top-4 left-4 bg-white/90 dark:bg-slate-900/90 px-4 py-1.5 rounded-full text-[9px] font-black text-teal-600 uppercase">{item.category}</span>
                     </div>
                   )}
-                  <div className="p-8">
+                  <div className="p-5 md:p-8">
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-xl font-black dark:text-white leading-tight">{item.title}</h3>
                       <p className="text-2xl font-black text-teal-600">{item.wtk}</p>
@@ -536,7 +536,7 @@ export default function Explore() {
                       <span className="flex items-center gap-1"><MapPin size={12} className="text-teal-600" /> {item.dist} km</span>
                       <span className="flex items-center gap-1"><User size={12} /> {item.user}</span>
                     </div>
-                    <button onClick={() => setSelectedItem(item)} className="w-full mt-6 bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-teal-600 transition-all">View Details</button>
+                    <button onClick={() => setSelectedItem(item)} className="w-full mt-5 md:mt-6 bg-slate-900 text-white py-3.5 md:py-4 rounded-2xl font-bold hover:bg-teal-600 transition-all">View Details</button>
                   </div>
                 </motion.div>
               ))}
@@ -552,8 +552,8 @@ export default function Explore() {
 
       <AnimatePresence>
         {selectedItem && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md">
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-[40px] overflow-hidden relative shadow-2xl border dark:border-slate-800">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-6 bg-slate-950/60 backdrop-blur-md">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white dark:bg-slate-900 w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-[26px] md:rounded-[40px] overflow-hidden relative shadow-2xl border dark:border-slate-800">
               <button onClick={() => setSelectedItem(null)} className="absolute top-6 right-6 z-10 p-3 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-red-500 transition-all"><X size={20} /></button>
               <div className="grid grid-cols-1 md:grid-cols-2">
                 {selectedItem.image ? (
@@ -561,7 +561,7 @@ export default function Explore() {
                 ) : (
                   <div className="h-64 md:h-full bg-slate-100 dark:bg-slate-800" />
                 )}
-                <div className="p-10 space-y-6">
+                <div className="p-5 sm:p-6 md:p-10 space-y-5 md:space-y-6">
                   <div>
                     <span className="text-teal-600 font-black text-[10px] uppercase tracking-widest">{selectedItem.category}</span>
                     <h2 className="text-3xl font-black dark:text-white mt-1">{selectedItem.title}</h2>
