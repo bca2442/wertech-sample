@@ -1047,7 +1047,6 @@ app.use('/api', async (req, res, next) => {
       'username',
       'owner_username',
       'sender_username',
-      'requester_username',
       'reporter_username',
       'blocker_username'
     ];
@@ -1055,6 +1054,27 @@ app.use('/api', async (req, res, next) => {
       const value = req.body?.[field];
       if (value && String(value).trim() !== req.auth.username) {
         return res.status(403).json({ message: `Body field "${field}" must match authenticated user` });
+      }
+    }
+
+    // requester_username must match auth only for endpoints where requester is the acting user.
+    const requesterBody = String(req.body?.requester_username || '').trim();
+    if (requesterBody) {
+      const requesterOwnedPath =
+        (method === 'PATCH' && /^\/barters\/[^/]+\/status$/.test(path)) ||
+        (method === 'PATCH' && /^\/messages\/[^/]+\/read$/.test(path)) ||
+        (method === 'PATCH' && /^\/notifications\/[^/]+\/read$/.test(path)) ||
+        (method === 'DELETE' && /^\/messages\/[^/]+$/.test(path));
+      if (requesterOwnedPath && requesterBody !== req.auth.username) {
+        return res.status(403).json({ message: 'Body field "requester_username" must match authenticated user' });
+      }
+    }
+
+    // For friend accept/reject, recipient must be the authenticated user.
+    if (method === 'POST' && (path === '/friends/accept' || path === '/friends/reject')) {
+      const recipientBody = String(req.body?.recipient_username || '').trim();
+      if (recipientBody && recipientBody !== req.auth.username) {
+        return res.status(403).json({ message: 'Body field "recipient_username" must match authenticated user' });
       }
     }
 
