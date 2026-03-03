@@ -245,6 +245,32 @@ export default function Profile() {
     }
   };
 
+  const cancelSentFriendRequest = async () => {
+    if (!currentUsername || !targetUsername || isOwnProfile) return;
+    setFriendActionLoading(true);
+    try {
+      const response = await fetch('/api/friends/unfriend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: currentUsername,
+          target_username: targetUsername
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        toastError(getApiMessage(data, 'Could not cancel friend request.'));
+        return;
+      }
+      setFriendshipStatus('none');
+      toastInfo('Friend request canceled.');
+    } catch (err) {
+      toastError('Could not cancel friend request.');
+    } finally {
+      setFriendActionLoading(false);
+    }
+  };
+
   const unfriendUser = async () => {
     if (!currentUsername || !targetUsername || isOwnProfile) return;
     setFriendActionLoading(true);
@@ -627,8 +653,12 @@ export default function Profile() {
               </div>
             )}
             {friendshipStatus === 'request_sent' && !isBlockedByViewer && !hasBlockedViewer && (
-              <button className="bg-amber-100 text-amber-700 px-8 py-4 rounded-2xl font-black flex items-center gap-2 border border-amber-200">
-                <Clock4 size={18} /> Request Sent
+              <button
+                onClick={cancelSentFriendRequest}
+                disabled={friendActionLoading}
+                className="bg-amber-100 text-amber-700 px-8 py-4 rounded-2xl font-black flex items-center gap-2 border border-amber-200 hover:bg-amber-200 transition-all disabled:opacity-60"
+              >
+                <Clock4 size={18} /> {friendActionLoading ? 'Cancelling...' : 'Cancel Request'}
               </button>
             )}
             {friendshipStatus === 'request_received' && !isBlockedByViewer && !hasBlockedViewer && (
