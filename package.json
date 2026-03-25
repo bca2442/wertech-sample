@@ -2,7 +2,7 @@
   "name": "wertech-root",
   "private": true,
   "scripts": {
-    "build": "npm install --prefix wertech-app && chmod +x wertech-app/node_modules/.bin/react-scripts && npm install --prefix server && npm run build --prefix wertech-app",
+    "build": "npm install --prefix wertech-app && npm install --prefix server && npm run build --prefix wertech-app",
     "start": "npm start --prefix server"
   }
 }
