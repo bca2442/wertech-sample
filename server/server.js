@@ -2,6 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 
@@ -14,6 +16,11 @@ const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 const JWT_SECRET = process.env.JWT_SECRET || 'wertech_dev_secret_change_me';
 const PORT = Number(process.env.PORT || 5000);
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/wertech_db';
+const INSTALL_BONUS_WTK = 500;
+const PROFILE_COMPLETION_BONUS_WTK = 500;
+const REFERRAL_INSTALL_REWARD_WTK = 100;
+const REFERRAL_PROFILE_REWARD_WTK = 100;
+const WTK_PRICE_INR = 100;
 const CORS_ORIGINS = String(
   process.env.CORS_ORIGINS
   || 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001,http://localhost:5173,http://127.0.0.1:5173'
@@ -22,6 +29,15 @@ const CORS_ORIGINS = String(
   .map((v) => v.trim())
   .filter(Boolean);
 const APP_ENV = process.env.NODE_ENV || 'development';
+const FRONTEND_BUILD_CANDIDATES = [
+  path.resolve(__dirname, '..', 'wertech-app', 'build'),
+  path.resolve(process.cwd(), '..', 'wertech-app', 'build'),
+  path.resolve(process.cwd(), 'wertech-app', 'build'),
+  path.resolve(__dirname, 'wertech-app', 'build'),
+  path.resolve(__dirname, 'build')
+];
+const FRONTEND_BUILD_DIR = FRONTEND_BUILD_CANDIDATES.find((dir) => fs.existsSync(path.join(dir, 'index.html'))) || '';
+const FRONTEND_INDEX_FILE = FRONTEND_BUILD_DIR ? path.join(FRONTEND_BUILD_DIR, 'index.html') : '';
 
 function generateRequestId() {
   if (typeof crypto.randomUUID === 'function') {
@@ -48,6 +64,10 @@ function logStructured(level, event, payload = {}) {
 
 function escapeRegex(value) {
   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function toUsernameRegex(value) {
+  return new RegExp(`^${escapeRegex(String(value || '').trim())}$`, 'i');
 }
 
 function hashPassword(plainPassword) {
@@ -275,6 +295,37 @@ function invalidateRealtimeCachesForUser(username) {
   if (!key) return;
   invalidateCachePrefix(`msg-unread-count:${key}`);
   invalidateCachePrefix(`notif-unread-count:${key}`);
+}
+
+async function removeListingNotifications({ listingIds = [], ownerUsername = '' } = {}) {
+  const ids = Array.isArray(listingIds)
+    ? listingIds.map((v) => String(v || '').trim()).filter(Boolean)
+    : [];
+  const owner = String(ownerUsername || '').trim();
+  const orFilters = [];
+  if (ids.length > 0) {
+    orFilters.push({ 'meta.listing_id': { $in: ids } });
+  }
+  if (owner) {
+    orFilters.push({ 'meta.owner_username': owner });
+    orFilters.push({ actor_username: owner });
+  }
+  if (orFilters.length === 0) {
+    return { deleted: 0, recipients: [] };
+  }
+
+  const query = { type: 'listing', $or: orFilters };
+  const recipients = await Notification.distinct('recipient_username', query);
+  const result = await Notification.deleteMany(query);
+  const recipientList = recipients.map((v) => String(v || '').trim()).filter(Boolean);
+  if (recipientList.length > 0) {
+    recipientList.forEach((u) => invalidateRealtimeCachesForUser(u));
+    pushEventToMany(recipientList, 'notification_update', {
+      reason: 'listing_removed',
+      owner_username: owner || null
+    });
+  }
+  return { deleted: Number(result?.deletedCount || 0), recipients: recipientList };
 }
 
 const eventClientsByUser = new Map();
@@ -599,7 +650,7 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true }, 
   role: { type: String, default: 'user' },
-  wtk_balance: { type: Number, default: 1000 },
+  wtk_balance: { type: Number, default: INSTALL_BONUS_WTK },
   status: { type: String, default: 'Verified' },
   account_state: { type: String, enum: ['ACTIVE', 'PENDING', 'SUSPENDED', 'INACTIVE', 'BANNED'], default: 'ACTIVE' },
   location: { type: String, default: 'Kalamassery, Kochi' },
@@ -616,6 +667,11 @@ const UserSchema = new mongoose.Schema({
   email_last_changed_at: { type: Date, default: null },
   has_subscribed: { type: Boolean, default: false },
   subscription_paid: { type: Number, default: 0 },
+  referred_by: { type: String, default: '' },
+  install_bonus_granted: { type: Boolean, default: true },
+  profile_completion_bonus_granted: { type: Boolean, default: false },
+  referrer_install_reward_granted: { type: Boolean, default: false },
+  referrer_profile_reward_granted: { type: Boolean, default: false },
   refresh_token_hash: { type: String, default: '' },
   refresh_token_expires_at: { type: Date, default: null },
   created_at: { type: Date, default: Date.now }
@@ -648,6 +704,60 @@ const TransactionSchema = new mongoose.Schema({
 });
 
 const Transaction = mongoose.model('transactions', TransactionSchema);
+
+async function createEarnedTransaction(username, title, amount, status = 'Completed') {
+  if (!username || !amount) return null;
+  return Transaction.create({
+    username: String(username).trim(),
+    type: 'earned',
+    title: String(title || 'Wallet credit'),
+    wtk: Number(amount || 0),
+    status
+  });
+}
+
+async function creditUserBalance(user, amount, title) {
+  if (!user || !amount) return user;
+  user.wtk_balance = Number(user.wtk_balance || 0) + Number(amount || 0);
+  await user.save();
+  await createEarnedTransaction(user.username, title, amount);
+  pushEvent(String(user.username || ''), 'wallet_update', {
+    username: String(user.username || ''),
+    wtk_balance: Number(user.wtk_balance || 0),
+    delta: Number(amount || 0),
+    title: String(title || '')
+  });
+  return user;
+}
+
+async function rewardReferrer(referrerUsername, referredUsername, amount, title) {
+  const normalizedReferrer = String(referrerUsername || '').trim();
+  const normalizedReferred = String(referredUsername || '').trim();
+  if (!normalizedReferrer || !normalizedReferred) return false;
+  if (normalizedReferrer.toLowerCase() === normalizedReferred.toLowerCase()) return false;
+
+  const referrer = await User.findOne({ username: toUsernameRegex(normalizedReferrer) });
+  if (!referrer) return false;
+
+  await creditUserBalance(referrer, amount, title);
+  await Notification.create({
+    recipient_username: referrer.username,
+    actor_username: normalizedReferred,
+    type: 'listing',
+    title: 'Referral reward received',
+    message: title,
+    meta: {
+      reward_wtk: Number(amount || 0),
+      referred_username: normalizedReferred
+    }
+  });
+  pushEvent(referrer.username, 'notification_update', {
+    title: 'Referral reward received',
+    reward_wtk: Number(amount || 0),
+    referred_username: normalizedReferred
+  });
+  return true;
+}
 
 const MessageSchema = new mongoose.Schema({
   sender_username: { type: String, required: true, index: true },
@@ -725,12 +835,13 @@ app.post('/api/auth/register', async (req, res) => {
     const username = String(req.body?.username || '').trim();
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
+    const referredByRaw = String(req.body?.referred_by || '').trim();
     if (!username || !email || !password) {
       return res.status(400).json({ message: "Username, email, and password are required" });
     }
 
-    const usernameRegex = new RegExp(`^${escapeRegex(username)}$`, 'i');
-    const emailRegex = new RegExp(`^${escapeRegex(email)}$`, 'i');
+    const usernameRegex = toUsernameRegex(username);
+    const emailRegex = toUsernameRegex(email);
     const existingUser = await User.findOne({ $or: [{ email: emailRegex }, { username: usernameRegex }] });
     if (existingUser) {
       if (String(existingUser.email || '').toLowerCase() === email.toLowerCase()) {
@@ -739,19 +850,53 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(409).json({ message: "Username already taken" });
     }
 
+    let referredBy = '';
+    if (referredByRaw && referredByRaw.toLowerCase() !== username.toLowerCase()) {
+      const referrer = await User.findOne({ username: toUsernameRegex(referredByRaw) }).select('username').lean();
+      if (referrer?.username) {
+        referredBy = String(referrer.username || '');
+      }
+    }
+
     const newUser = new User({
       username,
       email,
       password: hashPassword(password),
       role: 'user',
-      wtk_balance: 1000,
+      wtk_balance: INSTALL_BONUS_WTK,
       status: 'Verified',
       has_subscribed: true,
-      subscription_paid: 0
+      subscription_paid: 0,
+      referred_by: referredBy,
+      install_bonus_granted: true,
+      profile_completion_bonus_granted: false,
+      referrer_install_reward_granted: false,
+      referrer_profile_reward_granted: false
     });
     await newUser.save();
+    await createEarnedTransaction(newUser.username, 'Welcome bonus - app install', INSTALL_BONUS_WTK);
+
+    let referrerRewarded = false;
+    if (referredBy) {
+      referrerRewarded = await rewardReferrer(
+        referredBy,
+        newUser.username,
+        REFERRAL_INSTALL_REWARD_WTK,
+        `Referral install reward from ${newUser.username}`
+      );
+      if (referrerRewarded) {
+        newUser.referrer_install_reward_granted = true;
+        await newUser.save();
+      }
+    }
     console.log(`👤 New user saved: ${username}`);
-    res.status(201).json({ message: "User saved successfully!" });
+    res.status(201).json({
+      message: "User saved successfully!",
+      onboarding_wtk_awarded: INSTALL_BONUS_WTK,
+      next_profile_bonus_wtk: PROFILE_COMPLETION_BONUS_WTK,
+      referred_by: referredBy || '',
+      referrer_rewarded_install: referrerRewarded
+    });
   } catch (err) {
     res.status(500).json({ message: "Error saving user", error: err.message });
   }
@@ -762,7 +907,7 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const identifier = String(email || '').trim();
-    const identifierRegex = new RegExp(`^${escapeRegex(identifier)}$`, 'i');
+    const identifierRegex = toUsernameRegex(identifier);
     const user = await User.findOne({
       $or: [{ email: identifierRegex }, { username: identifierRegex }]
     });
@@ -784,17 +929,29 @@ app.post('/api/auth/login', async (req, res) => {
       await user.save();
     }
 
-    // Ensure every user starts with 1000 WTK.
-    // If an old account still has 0 and has never transacted, initialize once to 1000.
+    let loginNeedsSave = false;
+    if (typeof user.install_bonus_granted !== 'boolean') {
+      user.install_bonus_granted = true;
+      loginNeedsSave = true;
+    }
+    if (typeof user.profile_completion_bonus_granted !== 'boolean') {
+      user.profile_completion_bonus_granted = true;
+      loginNeedsSave = true;
+    }
+    if (typeof user.referrer_install_reward_granted !== 'boolean') {
+      user.referrer_install_reward_granted = false;
+      loginNeedsSave = true;
+    }
+    if (typeof user.referrer_profile_reward_granted !== 'boolean') {
+      user.referrer_profile_reward_granted = false;
+      loginNeedsSave = true;
+    }
     if (typeof user.wtk_balance !== 'number' || Number.isNaN(user.wtk_balance)) {
-      user.wtk_balance = 1000;
+      user.wtk_balance = 0;
+      loginNeedsSave = true;
+    }
+    if (loginNeedsSave) {
       await user.save();
-    } else if (user.wtk_balance <= 0) {
-      const txCount = await Transaction.countDocuments({ username: user.username });
-      if (txCount === 0) {
-        user.wtk_balance = 1000;
-        await user.save();
-      }
     }
 
     const accessToken = issueAccessToken(user);
@@ -1241,6 +1398,21 @@ app.patch('/api/admin/users/:username/account-status', async (req, res) => {
     user.account_state = next;
     await user.save();
 
+    if (next === 'INACTIVE' || next === 'BANNED') {
+      const listings = await Listing.find({ owner_username: username }).select('_id').lean();
+      const listingIds = listings.map((l) => String(l._id || '')).filter(Boolean);
+      if (listingIds.length > 0) {
+        await Listing.deleteMany({ owner_username: username });
+        await removeListingNotifications({ listingIds, ownerUsername: username });
+        invalidateCachePrefix('listings:');
+        pushEvent(username, 'listing_update', {
+          reason: 'bulk_deleted',
+          owner_username: username,
+          count: listingIds.length
+        });
+      }
+    }
+
     return res.json({
       message: "User status updated",
       user: {
@@ -1266,6 +1438,9 @@ app.delete('/api/admin/users/:username', async (req, res) => {
       return res.status(403).json({ message: "Cannot delete admin account" });
     }
 
+    const listings = await Listing.find({ owner_username: username }).select('_id').lean();
+    const listingIds = listings.map((l) => String(l._id || '')).filter(Boolean);
+
     await Promise.all([
       Listing.deleteMany({ owner_username: username }),
       Transaction.deleteMany({ username }),
@@ -1284,6 +1459,10 @@ app.delete('/api/admin/users/:username', async (req, res) => {
       }),
       User.deleteOne({ username })
     ]);
+    if (listingIds.length > 0) {
+      await removeListingNotifications({ listingIds, ownerUsername: username });
+      invalidateCachePrefix('listings:');
+    }
 
     return res.json({ message: "User deleted" });
   } catch (err) {
@@ -1356,19 +1535,7 @@ app.get('/api/users/:username/wallet', async (req, res) => {
     const { username } = req.params;
     const user = await User.findOne({ username });
     if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (typeof user.wtk_balance !== 'number' || Number.isNaN(user.wtk_balance)) {
-      user.wtk_balance = 1000;
-      await user.save();
-    } else if (user.wtk_balance <= 0) {
-      const txCount = await Transaction.countDocuments({ username: user.username });
-      if (txCount === 0) {
-        user.wtk_balance = 1000;
-        await user.save();
-      }
-    }
-
-    return res.json({ username: user.username, wtk_balance: user.wtk_balance });
+    return res.json({ username: user.username, wtk_balance: Number(user.wtk_balance || 0) });
   } catch (err) {
     return res.status(500).json({ message: "Could not fetch wallet", error: err.message });
   }
@@ -1486,6 +1653,19 @@ app.patch('/api/users/:username/profile', async (req, res) => {
     const nextEmail = String(newEmailRaw || '').trim();
     const wantsUsernameChange = nextUsername && nextUsername !== user.username;
     const wantsEmailChange = nextEmail && nextEmail !== user.email;
+    const qualifiesForProfileReward =
+      !user.profile_completion_bonus_granted
+      && [
+        newUsernameRaw,
+        newEmailRaw,
+        profile_image,
+        location,
+        radius,
+        Array.isArray(skills) ? skills.length : null
+      ].some((value) => {
+        if (typeof value === 'number') return Number.isFinite(value) && value > 0;
+        return value !== undefined && value !== null && String(value).trim() !== '';
+      });
 
     if (wantsUsernameChange) {
       const last = user.username_last_changed_at ? new Date(user.username_last_changed_at).getTime() : null;
@@ -1545,6 +1725,25 @@ app.patch('/api/users/:username/profile', async (req, res) => {
     }
     await user.save();
 
+    let referrerProfileRewarded = false;
+    if (qualifiesForProfileReward) {
+      user.profile_completion_bonus_granted = true;
+      await creditUserBalance(user, PROFILE_COMPLETION_BONUS_WTK, 'Welcome bonus - profile completed');
+
+      if (user.referred_by && !user.referrer_profile_reward_granted) {
+        referrerProfileRewarded = await rewardReferrer(
+          user.referred_by,
+          user.username,
+          REFERRAL_PROFILE_REWARD_WTK,
+          `Referral profile reward from ${user.username}`
+        );
+        if (referrerProfileRewarded) {
+          user.referrer_profile_reward_granted = true;
+        }
+      }
+      await user.save();
+    }
+
     if (wantsUsernameChange) {
       await Promise.all([
         Listing.updateMany({ owner_username: oldUsername }, { $set: { owner_username: user.username } }),
@@ -1582,6 +1781,9 @@ app.patch('/api/users/:username/profile', async (req, res) => {
       skills: Array.isArray(user.skills) ? user.skills : [],
       radius: Number(user.radius || 15),
       profile_visibility: (user.profile_visibility || 'public') === 'private' ? 'private' : 'public',
+      wtk_balance: Number(user.wtk_balance || 0),
+      profile_bonus_awarded: qualifiesForProfileReward,
+      referrer_rewarded_profile: referrerProfileRewarded,
       can_change_username: canChangeUsername,
       next_username_change_at: nextUsernameChangeAt,
       can_change_email: canChangeEmail,
@@ -1643,6 +1845,11 @@ app.post('/api/friends/request', async (req, res) => {
         title: 'New Friend Request',
         message: `${fromUsername} sent you a friend request.`,
         meta: { requester_username: fromUsername }
+      });
+      invalidateRealtimeCachesForUser(toUsername);
+      pushEvent(toUsername, 'notification_update', {
+        reason: 'friend_request',
+        actor_username: fromUsername
       });
     }
 
@@ -1723,6 +1930,11 @@ app.post('/api/friends/accept', async (req, res) => {
       title: 'Friend Request Accepted',
       message: `${recipientUsername} accepted your friend request.`,
       meta: { accepter_username: recipientUsername }
+    });
+    invalidateRealtimeCachesForUser(requesterUsername);
+    pushEvent(requesterUsername, 'notification_update', {
+      reason: 'friend_accept',
+      actor_username: recipientUsername
     });
 
     return res.json({ message: "Friend request accepted" });
@@ -1851,6 +2063,11 @@ app.post('/api/barters', async (req, res) => {
         receiver_username: receiverUsername
       }
     });
+    invalidateRealtimeCachesForUser(receiverUsername);
+    pushEvent(receiverUsername, 'notification_update', {
+      reason: 'barter_request',
+      actor_username: senderUsername
+    });
 
     return res.status(201).json(created);
   } catch (err) {
@@ -1914,6 +2131,11 @@ app.patch('/api/barters/:id/status', async (req, res) => {
           sender_username: barter.sender_username,
           receiver_username: barter.receiver_username
         }
+      });
+      invalidateRealtimeCachesForUser(recipient);
+      pushEvent(recipient, 'notification_update', {
+        reason: 'barter_accept',
+        actor_username: requesterUsername
       });
     }
 
@@ -2768,20 +2990,29 @@ app.patch('/api/admin/reports/:reportId/status', async (req, res) => {
 
 app.get('/api/admin/dashboard/metrics', async (req, res) => {
   try {
-    const [users, reportsOpen] = await Promise.all([
-      User.find().select('wtk_balance role').lean(),
-      UserReport.countDocuments({ status: 'open' })
+    const [economyRows, totalUsers, totalReports] = await Promise.all([
+      User.aggregate([
+        {
+          $group: {
+            _id: null,
+            total_economy_wtk: { $sum: { $ifNull: ['$wtk_balance', 0] } }
+          }
+        }
+      ]),
+      User.countDocuments(),
+      UserReport.countDocuments()
     ]);
 
-    const totalEconomyWtk = users.reduce((acc, u) => acc + Number(u.wtk_balance || 0), 0);
-    const activeUsers = users.filter((u) => String(u.role || 'user') !== 'admin').length;
+    const totalEconomyWtk = Number(economyRows?.[0]?.total_economy_wtk || 0);
+    const liveUserCount = Number(totalUsers || 0);
     const uptimeSeconds = Math.floor(process.uptime());
     const uptimePercent = 99.9;
 
     return res.json({
       total_economy_wtk: totalEconomyWtk,
-      active_users: activeUsers,
-      reports_count: Number(reportsOpen || 0),
+      total_users: liveUserCount,
+      active_users: liveUserCount,
+      reports_count: Number(totalReports || 0),
       uptime_percent: uptimePercent,
       uptime_seconds: uptimeSeconds
     });
@@ -2944,6 +3175,7 @@ app.post('/api/listings', async (req, res) => {
         read: false
       }));
       await Notification.insertMany(notifications);
+      otherUsers.forEach((u) => invalidateRealtimeCachesForUser(u.username));
       pushEventToMany(otherUsers.map((u) => u.username), 'notification_update', {
         reason: 'new_listing',
         actor_username: owner_username
@@ -3037,6 +3269,10 @@ app.delete('/api/listings/:id', async (req, res) => {
     }
 
     await Listing.findByIdAndDelete(id);
+    await removeListingNotifications({
+      listingIds: [String(id)],
+      ownerUsername: String(listing.owner_username || '')
+    });
     invalidateCachePrefix('listings:');
     pushEvent(String(listing.owner_username || ''), 'listing_update', { reason: 'deleted', listing_id: String(id) });
     return res.json({ message: "Listing deleted" });
@@ -3044,6 +3280,14 @@ app.delete('/api/listings/:id', async (req, res) => {
     return res.status(500).json({ message: "Could not delete listing", error: err.message });
   }
 });
+
+if (fs.existsSync(FRONTEND_INDEX_FILE)) {
+  app.use(express.static(FRONTEND_BUILD_DIR));
+
+  app.get(/^\/(?!api(?:\/|$)).*/, (req, res) => {
+    return res.sendFile(FRONTEND_INDEX_FILE);
+  });
+}
 
 app.use('/api', (req, res, next) => {
   return next(new ApiError(404, 'NOT_FOUND', 'API route not found', { path: req.originalUrl }));
