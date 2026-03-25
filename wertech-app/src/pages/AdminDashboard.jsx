@@ -1,166 +1,151 @@
-import React, { useState } from 'react';
-import { 
-  Users, Flag, Settings, Trash2, 
-  UserCheck, Save, AlertTriangle, Clock 
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Activity, Users, AlertCircle, Globe } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+const HUMOR_QUOTES = [
+  "Servers are like toddlers: quiet for too long means trouble.",
+  "If it works in production, it was never a bug. It was a feature rollout.",
+  "Coffee: the original incident response toolkit.",
+  "No alerts means one of two things: healthy systems or broken monitoring.",
+  "We do not fear traffic spikes. We autoscale and pretend we expected it."
+];
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('users');
-  
-  // State for Maintenance Mode Toggle
-  const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+  const navigate = useNavigate();
+  const [now, setNow] = useState(new Date());
+  const [metrics, setMetrics] = useState({
+    total_economy_wtk: 0,
+    total_users: 0,
+    reports_count: 0,
+    uptime_percent: 99.9
+  });
+  const [alerts, setAlerts] = useState([]);
+  const username = localStorage.getItem('username') || 'Admin';
 
-  // Mock User Data
-  const [users] = useState([
-    { id: 1, name: 'Gouri', email: 'gouri@wertech.com', status: 'Verified' },
-    { id: 2, name: 'Rahul K.', email: 'rahul@wertech.com', status: 'Verified' },
-    { id: 3, name: 'Unknown User', email: 'spam@bot.net', status: 'Flagged' },
-  ]);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        const [metricsRes, alertsRes] = await Promise.all([
+          fetch('/api/admin/dashboard/metrics'),
+          fetch('/api/admin/dashboard/alerts')
+        ]);
+        const [metricsData, alertsData] = await Promise.all([metricsRes.json(), alertsRes.json()]);
+
+        if (metricsRes.ok && metricsData) {
+          setMetrics({
+            total_economy_wtk: Number(metricsData.total_economy_wtk || 0),
+            total_users: Number(metricsData.total_users ?? metricsData.active_users ?? 0),
+            reports_count: Number(metricsData.reports_count || 0),
+            uptime_percent: Number(metricsData.uptime_percent || 99.9)
+          });
+        }
+        if (alertsRes.ok && Array.isArray(alertsData)) {
+          setAlerts(alertsData);
+        }
+      } catch (err) {
+        // no-op
+      }
+    };
+
+    loadDashboard();
+    const timer = setInterval(loadDashboard, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const greeting = useMemo(() => {
+    const hour = now.getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  }, [now]);
+
+  const formattedDate = useMemo(
+    () =>
+      now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      }),
+    [now]
+  );
+
+  const formattedTime = useMemo(
+    () =>
+      now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+    [now]
+  );
+
+  const humorQuoteOfDay = useMemo(() => {
+    const dateKey = now.toDateString();
+    const seed = Array.from(dateKey).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return HUMOR_QUOTES[seed % HUMOR_QUOTES.length];
+  }, [now]);
+
+  const formatWtkExact = (value) => `${Number(value || 0).toLocaleString()} WTK`;
+
+  const stats = [
+    { title: "Total Economy", value: formatWtkExact(metrics.total_economy_wtk), icon: <Activity className="text-teal-600" /> },
+    { title: "Total Users", value: Number(metrics.total_users || 0).toLocaleString(), icon: <Users className="text-blue-600" /> },
+    { title: "Reports", value: Number(metrics.reports_count || 0).toLocaleString(), icon: <AlertCircle className="text-red-500" /> },
+    { title: "Uptime", value: `${Number(metrics.uptime_percent || 99.9).toFixed(1)}%`, icon: <Globe className="text-green-500" /> }
+  ];
 
   return (
-    <div className="p-10 max-w-7xl mx-auto space-y-8">
-      
-      {/* HEADER SECTION */}
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-4xl font-black text-slate-800 tracking-tighter uppercase italic">Admin Control</h1>
-          <p className="text-slate-400 font-bold text-[10px] tracking-[0.2em] mt-1 uppercase">System Oversight & Management</p>
-        </div>
-        
-        {/* TAB NAVIGATION */}
-        <div className="flex bg-white p-2 rounded-[24px] shadow-sm border border-slate-100">
-          {['users', 'reports', 'settings'].map((tab) => (
-            <button 
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-8 py-2.5 rounded-[18px] font-black text-[10px] uppercase tracking-widest transition-all ${
-                activeTab === tab 
-                  ? 'bg-slate-900 text-white shadow-md' 
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+    <div className="space-y-10">
+      <div className="bg-white dark:bg-slate-900 rounded-[40px] p-8 border dark:border-slate-800 shadow-sm">
+        <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest mb-3">Admin Command Center</p>
+        <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+          {greeting}, {username}
+        </h1>
+        <p className="text-slate-500 dark:text-slate-400 font-medium mt-2">
+          {formattedDate} | {formattedTime}
+        </p>
+        <p className="mt-4 text-sm text-slate-600 dark:text-slate-300 italic">
+          "{humorQuoteOfDay}"
+        </p>
       </div>
 
-      {/* MAIN CONTENT CARD */}
-      <div className="bg-white rounded-[40px] p-10 border border-slate-50 shadow-sm min-h-[600px]">
-        
-        {/* USERS MANAGEMENT TAB */}
-        {activeTab === 'users' && (
-          <div className="space-y-8">
-            <div className="flex justify-between items-center">
-              <h3 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-                <Users className="text-[#0d9488]" /> User Directory
-              </h3>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="text-left text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
-                    <th className="pb-4 px-4">Member Info</th>
-                    <th className="pb-4 px-4">Account Status</th>
-                    <th className="pb-4 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {users.map((user) => (
-                    <tr key={user.id} className="group hover:bg-slate-50/50 transition-colors">
-                      <td className="py-6 px-4">
-                        <p className="font-black text-slate-800">{user.name}</p>
-                        <p className="text-xs font-bold text-slate-400">{user.email}</p>
-                      </td>
-                      <td className="py-6 px-4">
-                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                          user.status === 'Flagged' 
-                            ? 'bg-red-50 text-red-500' 
-                            : 'bg-teal-50 text-teal-600'
-                        }`}>
-                          {user.status}
-                        </span>
-                      </td>
-                      <td className="py-6 px-4 text-right space-x-2">
-                        <button className="p-2 text-slate-300 hover:text-teal-600 transition-all"><UserCheck size={20}/></button>
-                        <button className="p-2 text-slate-300 hover:text-red-500 transition-all"><Trash2 size={20}/></button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        {stats.map((s, i) => (
+          <div key={i} className="bg-white dark:bg-slate-900 p-8 rounded-[40px] border dark:border-slate-800 shadow-sm">
+            <div className="mb-4">{s.icon}</div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{s.title}</p>
+            <h3 className="text-3xl font-black mt-1">{s.value}</h3>
           </div>
-        )}
+        ))}
+      </div>
 
-        {/* REPORTS TAB */}
-        {activeTab === 'reports' && (
-          <div className="flex flex-col items-center justify-center py-32 text-center">
-            <div className="p-8 bg-amber-50 text-amber-500 rounded-[30px] mb-6">
-              <AlertTriangle size={48} />
+      <div className="bg-white dark:bg-slate-900 rounded-[40px] p-8 border dark:border-slate-800">
+        <h3 className="text-xl font-black mb-6">Critical System Alerts</h3>
+        <div className="space-y-4">
+          {alerts.length === 0 && (
+            <div className="p-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-3xl">
+              <p className="font-bold text-slate-500">No critical alerts right now.</p>
             </div>
-            <h3 className="text-2xl font-black text-slate-800 tracking-tight">System is Clean</h3>
-            <p className="text-slate-400 font-bold text-sm mt-2 italic">There are no pending user reports or disputes.</p>
-          </div>
-        )}
-
-        {/* SETTINGS TAB WITH WORKING TOGGLE */}
-        {activeTab === 'settings' && (
-          <div className="max-w-xl space-y-10">
-            <div className="space-y-2">
-              <h3 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-                <Settings className="text-[#0d9488]" /> System Configuration
-              </h3>
-              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest ml-1">Global Application Controls</p>
-            </div>
-
-            <div className="space-y-6">
-              {/* MAINTENANCE MODE TOGGLE */}
-              <div className="flex justify-between items-center p-8 bg-slate-50 rounded-[35px] border border-slate-100/50">
-                <div>
-                  <p className="font-black text-slate-800">Maintenance Mode</p>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-tight mt-1">
-                    Disable all trade transactions
-                  </p>
-                </div>
-
-                {/* THE TOGGLE SWITCH */}
-                <button 
-                  onClick={() => setIsMaintenanceMode(!isMaintenanceMode)}
-                  className={`w-16 h-8 flex items-center rounded-full p-1 transition-all duration-300 ${
-                    isMaintenanceMode ? 'bg-[#0d9488]' : 'bg-slate-300'
-                  }`}
-                >
-                  <div 
-                    className={`bg-white w-6 h-6 rounded-full shadow-lg transform transition-transform duration-300 ${
-                      isMaintenanceMode ? 'translate-x-8' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* OTHER SETTING EXAMPLE */}
-              <div className="flex justify-between items-center p-8 bg-slate-50 rounded-[35px] border border-slate-100/50">
-                <div>
-                  <p className="font-black text-slate-800">Public Exploration</p>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-tight mt-1">
-                    Allow non-users to browse listings
-                  </p>
-                </div>
-                <div className="w-16 h-8 bg-[#0d9488] flex items-center rounded-full p-1 opacity-50 cursor-not-allowed">
-                   <div className="bg-white w-6 h-6 rounded-full translate-x-8" />
-                </div>
-              </div>
-
-              <button className="w-full py-6 bg-[#0d9488] text-white rounded-[28px] font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:opacity-90 transition-all flex items-center justify-center gap-3 active:scale-[0.98]">
-                <Save size={20} /> Save System Changes
+          )}
+          {alerts.map((a) => (
+            <div key={a.id} className="p-5 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-3xl flex justify-between items-center gap-4">
+              <p className="font-bold text-red-600">{a.message}</p>
+              <button
+                onClick={() => navigate(a.action_route || '/admin/profiles')}
+                className="text-[10px] font-black uppercase bg-red-600 text-white px-4 py-2 rounded-xl shrink-0"
+              >
+                {a.action_label || 'Investigate'}
               </button>
             </div>
-          </div>
-        )}
-
+          ))}
+        </div>
       </div>
     </div>
   );
 }
+
